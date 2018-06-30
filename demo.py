@@ -73,6 +73,6 @@ for fileInfo in readExampleSet(path):
     This defines the template matrix T. In a similar manner, a variance matrix V is computed, where the distribution of
     each coefficient is measured along the example set.
     '''
-    # todo : implement here. Variance Matrix ?
+    # todo : implement here. Variance Matrix search ?
 
 
