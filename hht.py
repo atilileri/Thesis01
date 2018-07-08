@@ -30,3 +30,4 @@ f_inst_s3 = np.diff(omega_s3)
 # plt.plot(x[1:], f_inst_s2, "g")
 plt.plot(x[1:], f_inst_s3, "r")
 plt.show()
+
