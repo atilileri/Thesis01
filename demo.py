@@ -97,12 +97,28 @@ for fileInfo in readExampleSet(path):
     allMatrixesOfExampleSet.append(mfccMatrix)
 
 ''' Step B.5:
-A mean cepstrogram is computed by averaging the matrices of the example set.
+A mean cepstrogram is computed by averaging the matrices of the example set, as follows:
 T = 1/N * Epsilon( M(i) i=1,2,...,N )
 This defines the template matrix T. In a similar manner, a variance matrix V is computed, where the distribution of
 each coefficient is measured along the example set.
 '''
 templateMatrix = np.mean(allMatrixesOfExampleSet, axis=0)
-print(templateMatrix.shape)
+varianceMatrix = np.var(allMatrixesOfExampleSet, axis=0)
+# print(templateMatrix.shape)
+# print(varianceMatrix.shape)
 # print(templateMatrix)
-#  todo - ai: implement here. Variance Matrix.
+
+
+''' Step B.6:
+In addition to the template matrix, another feature vector is computed as follows: the matrices of the example set
+are concatenated into one matrix, and the singular value decomposition (SVD) of the resulting matrix is computed.
+Then, the normalized singular vector S corresponding to the largest singular value is derived. Due to the information
+packing property of the SVD transform [28], the singular vector is expected to capture the most important features of
+the breath event, and thus, improve the separation ability of the algorithm when used together with the template matrix
+in the calculation of the breath similarity measure of test signals (see Section II-C).
+'''
+
+# todo - hh: how to choose axis here. concatanane on mfcc features or subframes?
+concatanatedMatrix = np.concatenate(allMatrixesOfExampleSet, axis=0)
+print(np.shape(allMatrixesOfExampleSet))
+print(concatanatedMatrix.shape)
