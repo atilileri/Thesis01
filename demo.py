@@ -37,7 +37,7 @@ def readExampleSet(folderPath):
     return exampleSet
 
 
-''' Step B.1:
+''' Step II-A.1:
 Several signals containing isolated breath examples are selected, forming the example set. From each example, a section
 of fixed length, typically equal to the length of the shortest example in the set (about 100–160 ms), is derived.
 This length is used throughout the algorithm as the frame length (see Section II-C).
@@ -49,7 +49,7 @@ for fileInfo in readExampleSet(path):
     subframeDurationBySample = int(subframeDuration * fileInfo[1])
 
     # todo - hh: ask if lfilter() works true?
-    ''' Step B.2:
+    ''' Step II-A.2:
     Each breath example is divided into short consecutive subframes, with duration of 10 ms and hop size of 5 ms.
     Each subframe is then pre-emphasized using a first-order difference filter ( H(z) = 1 - alpha * z^-1 
     where alpha = 0.95)
@@ -63,7 +63,7 @@ for fileInfo in readExampleSet(path):
         # print(stopIdx)
         emphasized = signal.lfilter([1, -1*alpha], -1, fileInfo[2][i:stopIdx])
 
-        ''' Step B.3:
+        ''' Step II-A.3:
         For each breath example, the MFCC are computed for every subframe, thus forming a short-time cepstrogram
         representation of the example. The cepstrogram is defined as a matrix whose columns are the MFCC vectors
         for each subframe. Each such matrix is denoted by M(i), i=1,2,...,N where N is the number of examples in the
@@ -84,7 +84,7 @@ for fileInfo in readExampleSet(path):
         # print(len(mfccMatrix))
         # print(mfccMatrix)
 
-    ''' Step B.4:
+    ''' Step II-A.4:
     For each column of the cepstrogram, DC removal is performed, resulting in the matrix M(i) i=1,2,...,N.
     '''
     for column in mfccMatrix:
@@ -96,7 +96,7 @@ for fileInfo in readExampleSet(path):
     # print(mfccMatrix)
     allMatrixesOfExampleSet.append(mfccMatrix)
 
-''' Step B.5:
+''' Step II-A.5:
 A mean cepstrogram is computed by averaging the matrices of the example set, as follows:
 T = 1/N * Epsilon( M(i) i=1,2,...,N )
 This defines the template matrix T. In a similar manner, a variance matrix V is computed, where the distribution of
@@ -109,7 +109,7 @@ varianceMatrix = np.var(allMatrixesOfExampleSet, axis=0)
 # print(templateMatrix)
 
 
-''' Step B.6:
+''' Step II-A.6:
 In addition to the template matrix, another feature vector is computed as follows: the matrices of the example set
 are concatenated into one matrix, and the singular value decomposition (SVD) of the resulting matrix is computed.
 Then, the normalized singular vector S corresponding to the largest singular value is derived. Due to the information
