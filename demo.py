@@ -120,5 +120,9 @@ in the calculation of the breath similarity measure of test signals (see Section
 
 # todo - hh: how to choose axis here. concatanane on mfcc features or subframes?
 concatanatedMatrix = np.concatenate(allMatrixesOfExampleSet, axis=0)
+# todo - ai: add svg here
+# https://machinelearningmastery.com/singular-value-decomposition-for-machine-learning/
+# https://docs.scipy.org/doc/numpy-1.14.0/reference/generated/numpy.linalg.svd.html
+
 print(np.shape(allMatrixesOfExampleSet))
 print(concatanatedMatrix.shape)
