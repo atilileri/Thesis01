@@ -20,14 +20,14 @@ def readExampleSet(folderPath):
         sampleRate, samples = scipy.io.wavfile.read(filePath)
         # stereo to mono
         if 1 < samples.shape[1]:
-            # todo : maybe all channels can be used as different inputs to augment the data.
+            # todo - hh: maybe all channels can be used as different inputs to augment the data?
             samplesMono = np.mean(samples, axis=1, dtype=int)
         else:
             samplesMono = samples
         exampleSet.append([filePath, sampleRate, samplesMono])
         if len(samplesMono) < minlen:
             minlen = len(samplesMono)
-            # todo : minlen diff looks huge, create better samples
+            # todo - ai: minlen diff looks huge, create better samples
             print('min frame:', minlen)
 
     # fix frame length. Refer to Step B.1
@@ -48,7 +48,7 @@ for fileInfo in readExampleSet(path):
     # print(len(fileInfo[2]))
     subframeDurationBySample = int(subframeDuration * fileInfo[1])
 
-    # todo : ask if lfilter() works true?
+    # todo - hh: ask if lfilter() works true?
     ''' Step B.2:
     Each breath example is divided into short consecutive subframes, with duration of 10 ms and hop size of 5 ms.
     Each subframe is then pre-emphasized using a first-order difference filter ( H(z) = 1 - alpha * z^-1 
@@ -79,8 +79,8 @@ for fileInfo in readExampleSet(path):
                                                       samplerate=fileInfo[1],
                                                       winlen=subframeDuration,
                                                       winstep=hopSize)[0])  # read above explanation for '[0]' index.
-        # todo : ask above design choice and/or implementation is true. we can apply the filter on the whole signal and
-        # todo : then run mfcc() on the whole signal. Instead we do subframing first and then doing both on same time.
+        # todo - hh: ask above design choice and/or implementation is true. we can apply the filter on the whole signal
+        # todo - hh: and run mfcc() on the whole signal. Instead we do subframing first and then doing both on same time
         # print(len(mfccMatrix))
         # print(mfccMatrix)
 
@@ -105,4 +105,4 @@ each coefficient is measured along the example set.
 templateMatrix = np.mean(allMatrixesOfExampleSet, axis=0)
 print(templateMatrix.shape)
 # print(templateMatrix)
-#  todo : implement here. Variance Matrix.
+#  todo - ai: implement here. Variance Matrix.
