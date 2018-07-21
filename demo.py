@@ -18,9 +18,17 @@ def readExampleSet(folderPath):
 
     for filePath in glob.glob(os.path.join(folderPath, '*.wav')):
         sampleRate, samples = scipy.io.wavfile.read(filePath)
-        exampleSet.append([filePath, sampleRate, samples])
-        if len(samples) < minlen:
-            minlen = len(samples)
+        # stereo to mono
+        if 1 < samples.shape[1]:
+            # todo : maybe all channels can be used as different inputs to augment the data.
+            samplesMono = np.mean(samples, axis=1, dtype=int)
+        else:
+            samplesMono = samples
+        exampleSet.append([filePath, sampleRate, samplesMono])
+        if len(samplesMono) < minlen:
+            minlen = len(samplesMono)
+            # todo : minlen diff looks huge, create better samples
+            print('min frame:', minlen)
 
     # fix frame length. Refer to Step B.1
     for file in exampleSet:
@@ -34,11 +42,11 @@ Several signals containing isolated breath examples are selected, forming the ex
 of fixed length, typically equal to the length of the shortest example in the set (about 100–160 ms), is derived.
 This length is used throughout the algorithm as the frame length (see Section II-C).
 '''
+allMatrixesOfExampleSet = list()
 for fileInfo in readExampleSet(path):
     # print(fileInfo)
     # print(len(fileInfo[2]))
     subframeDurationBySample = int(subframeDuration * fileInfo[1])
-    allMatrixForFile = list()
 
     # todo : ask if lfilter() works true?
     ''' Step B.2:
@@ -46,13 +54,14 @@ for fileInfo in readExampleSet(path):
     Each subframe is then pre-emphasized using a first-order difference filter ( H(z) = 1 - alpha * z^-1 
     where alpha = 0.95)
     '''
+    mfccMatrix = list()
     for i in range(0, len(fileInfo[2]), int(hopSize * fileInfo[1])):
         # Index to stop: At the end of the subframe, index must stop before the file ends.
         # This assignment adjusts the last step size according to info above.
         stopIdx = min(i + subframeDurationBySample, len(fileInfo[2])-1)
         # print(i)
         # print(stopIdx)
-        signal.lfilter([1, -1*alpha], -1, fileInfo[2][i:stopIdx])
+        emphasized = signal.lfilter([1, -1*alpha], -1, fileInfo[2][i:stopIdx])
 
         ''' Step B.3:
         For each breath example, the MFCC are computed for every subframe, thus forming a short-time cepstrogram
@@ -61,34 +70,39 @@ for fileInfo in readExampleSet(path):
         examples set. The construction of the cepstrogram is demonstrated in Fig. 4.
         '''
         # http://python-speech-features.readthedocs.io/en/latest/#python_speech_features.base.mfcc
-        mfccMatrix = list()
-        mfccMatrix.append(python_speech_features.mfcc(signal=fileInfo[2][i:stopIdx],
+        # mfcc() function is designed to work on longer signals and divide them into subframes using winlen and winstep
+        # parameters. What we do instead is, we split the sgnal ourselves into subframes, aplly the filter on the
+        # subframe and put it into mfcc() function. So we get 1 mfcc row for each subframe. Because function is designed
+        # to work on longer signals, it returns 2d array, each row holding 1 mfcc vector. Since we only get 1 vector,
+        # our result is 2d array with the shape of (1,13). So we only get 1st row, as 1d array of 13 elements.
+        mfccMatrix.append(python_speech_features.mfcc(signal=emphasized,
                                                       samplerate=fileInfo[1],
                                                       winlen=subframeDuration,
-                                                      winstep=hopSize))
+                                                      winstep=hopSize)[0])  # read above explanation for '[0]' index.
+        # todo : ask above design choice and/or implementation is true. we can apply the filter on the whole signal and
+        # todo : then run mfcc() on the whole signal. Instead we do subframing first and then doing both on same time.
         # print(len(mfccMatrix))
         # print(mfccMatrix)
 
-        ''' Step B.4:
-        For each column of the cepstrogram, DC removal is performed, resulting in the matrix M(i) i=1,2,...,N.
-        '''
-        for column in mfccMatrix:
-            # print(np.mean(column))
-            # print(column)
-            column = column - np.mean(column)
-            # print(column)
-
-        # print(mfccMatrix)
-        allMatrixForFile.append(mfccMatrix)
-
-    ''' Step B.5:
-    A mean cepstrogram is computed by averaging the matrices of the example set.
-    T = 1/N * Epsilon( M(i) i=1,2,...,N )
-    This defines the template matrix T. In a similar manner, a variance matrix V is computed, where the distribution of
-    each coefficient is measured along the example set.
+    ''' Step B.4:
+    For each column of the cepstrogram, DC removal is performed, resulting in the matrix M(i) i=1,2,...,N.
     '''
-    # todo : resolve dimension problem
-    # print(allMatrixForFile)
-    # templateMatrix = np.mean(allMatrixForFile)
+    for column in mfccMatrix:
+        # print(np.mean(column))
+        # print(column.shape)
+        column = column - np.mean(column)
+        # print(column)
 
-    #  todo : implement here. Variance Matrix.
+    # print(mfccMatrix)
+    allMatrixesOfExampleSet.append(mfccMatrix)
+
+''' Step B.5:
+A mean cepstrogram is computed by averaging the matrices of the example set.
+T = 1/N * Epsilon( M(i) i=1,2,...,N )
+This defines the template matrix T. In a similar manner, a variance matrix V is computed, where the distribution of
+each coefficient is measured along the example set.
+'''
+templateMatrix = np.mean(allMatrixesOfExampleSet, axis=0)
+print(templateMatrix.shape)
+# print(templateMatrix)
+#  todo : implement here. Variance Matrix.
