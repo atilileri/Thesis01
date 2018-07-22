@@ -37,6 +37,14 @@ def readExampleSet(folderPath):
     return exampleSet
 
 
+'''
+II. INITIAL DETECTION ALGORITHM
+'''
+
+'''
+A. Constructing the Template
+'''
+
 ''' Step II-A.1:
 Several signals containing isolated breath examples are selected, forming the example set. From each example, a section
 of fixed length, typically equal to the length of the shortest example in the set (about 100–160 ms), is derived.
@@ -108,7 +116,6 @@ varianceMatrix = np.var(allMatrixesOfExampleSet, axis=0)
 # print(varianceMatrix.shape)
 # print(templateMatrix)
 
-
 ''' Step II-A.6:
 In addition to the template matrix, another feature vector is computed as follows: the matrices of the example set
 are concatenated into one matrix, and the singular value decomposition (SVD) of the resulting matrix is computed.
@@ -117,12 +124,44 @@ packing property of the SVD transform [28], the singular vector is expected to c
 the breath event, and thus, improve the separation ability of the algorithm when used together with the template matrix
 in the calculation of the breath similarity measure of test signals (see Section II-C).
 '''
-
-# todo - hh: how to choose axis here. concatanane on mfcc features or subframes?
+# todo - hh: how to choose axis here. concatanate on mfcc features or subframes? (concatanated on subframes for now)
+# todo - hh: This decision also changes the shape of singularVector (1d array with length 13(mfcc feature count)for now)
+# Concat matrix
 concatanatedMatrix = np.concatenate(allMatrixesOfExampleSet, axis=0)
-# todo - ai: add svg here
-# https://machinelearningmastery.com/singular-value-decomposition-for-machine-learning/
-# https://docs.scipy.org/doc/numpy-1.14.0/reference/generated/numpy.linalg.svd.html
+# print(concatanatedMatrix.shape)
+# Compute SVD
+singularVector = np.linalg.svd(concatanatedMatrix, compute_uv=False)
+print(singularVector)
+# Normalize by max norm
+singularVector = singularVector / np.linalg.norm(singularVector, ord=np.inf)
+# print(singularVector)
+# print(np.shape(singularVector))
 
-print(np.shape(allMatrixesOfExampleSet))
-print(concatanatedMatrix.shape)
+# print(np.shape(allMatrixesOfExampleSet))
+
+'''
+B. Detection Phase
+'''
+
+''' Step II-B.1:
+The MFCC matrix is computed as in the template generation process (see previous section). For this purpose, the
+length of the MFCC analysis window used for the detection phase must match the length of the frame derived from
+each breath example in the training phase.
+'''
+# todo - ai: implement mfcc matrix with a common function
+
+''' Step II-B.2:
+The short-time energy is computed according to the following:
+E = 1/N * Epsilon(goes n=[N0, N0+(N-1)])(x^2[n])
+where x[n] is the sampled audio signal, and N is the window length in samples (corresponding to 10 ms). It is
+then converted to a logarithmic scale
+E, dB = 10 * log10(E)
+'''
+# todo - ai: implement STE
+
+''' Step II-B.3:
+The zero-crossing rate (ZCR) is defined as the number of times the audio waveform changes its sign, normalized by
+the window length N in samples (corresponding to 10 ms)
+'''
+# todo - ai: add equation for zcr here.
+# todo - ai: implement ZCR
