@@ -147,7 +147,15 @@ singularVector = singularVector / np.linalg.norm(singularVector, ord=np.inf)
 
 '''
 B. Detection Phase
+The input for the detection algorithm is an audio signal (a monophonic recording of either speech or song, with no
+background music), sampled with 44 kHz. The signal is divided into consecutive analysis frames (with a hop size of 
+10 ms). For each frame, the following parameters are computed: the cepstrogram (MFCC matrix, see Fig. 4), short-time
+energy, zero-crossing rate, and spectral slope (see below). Each of these is computed over a window located around the
+center of the frame. A graphical plot showing the waveform of a processed signal as well as some of the parameters
+computed is shown in Fig. 5.
 '''
+
+# todo - ai: read a recording here to detect.
 
 ''' Step II-B.1:
 The MFCC matrix is computed as in the template generation process (see previous section). For this purpose, the
