@@ -1,3 +1,9 @@
+"""
+Atil Ilerialkan, 2018
+Python implementation of: https://www.researchgate.net/publication/
+3457766_An_Effective_Algorithm_for_Automatic_Detection_and_Exact_Demarcation_of_Breath_Sounds_in_Speech_and_Song_Signals
+"""
+
 import scipy.io.wavfile
 import os
 import glob
