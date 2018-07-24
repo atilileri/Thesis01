@@ -27,9 +27,15 @@ elif 1 == signalType:
     START - atili additions
     '''
 
-    path = 'D:/atili/MMIExt/Audacity/METU Recordings/hh2_breath/hh2_09_01.20.741_134_en.wav'
+    # my local copies
+    # path = 'D:/atili/MMIExt/Audacity/METU Recordings/hh2_breath/hh2_09_01.20.741_134_en.wav'
     # path = 'D:/atili/MMIExt/Audacity/METU Recordings/hh2_breath/hh2_09_01.20.741_134_en3_16bit.wav'
-    # path = 'D:/atili/MMIExt/Audacity/Initial Breath Examples/bb_tr001_cigdem_07.wav'
+    # path = './Initial Breath Examples/bb_tr001_cigdem_07.wav'
+
+    # github copies
+    path = './hh2_breath/hh2_09_01.20.741_134_en.wav'
+    # path = './hh2_breath/hh2_09_01.20.741_134_en3_16bit.wav'
+    # path = './Initial Breath Examples/bb_tr001_cigdem_07.wav'
 
     fs, signal = scipy.io.wavfile.read(path)
     print(fs, signal, signal.dtype)

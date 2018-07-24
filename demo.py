@@ -11,7 +11,8 @@ import python_speech_features
 import numpy as np
 from scipy import signal
 
-path = 'D:/atili/MMIExt/Audacity/Initial Breath Examples/'
+# path = 'D:/atili/MMIExt/Audacity/Initial Breath Examples/'  # local copies
+path = './Initial Breath Examples/'  # github copies
 subframeDuration = 0.010  # 10 ms
 hopSize = 0.005  # 5 ms
 alpha = 0.95
