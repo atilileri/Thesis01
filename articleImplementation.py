@@ -105,7 +105,7 @@ for i in range(0, len(inputSignal), int(hopSize * fs)):
     E, dB = 10 * log10(E)
     '''
     # todo - ai: implement STE on center of the analysis frame
-
+    utils.calcShortTimeEnergy(analysisFrame)
     ''' Step II-B.3:
     The zero-crossing rate (ZCR) is defined as the number of times the audio waveform changes its sign, normalized by
     the window length N in samples (corresponding to 10 ms)
