@@ -82,7 +82,7 @@ def createMfccMatrix(sig,
         stopIdx = min(i + subframeDurationBySample, len(sig) - 1)
         # print(i)
         # print(stopIdx)
-        emphasized = signal.lfilter([1, -1 * alpha], -1, sig[i:stopIdx])
+        emphasized = signal.lfilter([1, -1 * alpha], 1., sig[i:stopIdx])
 
         ''' Step II-A.3:
         For each breath example, the MFCC are computed for every subframe, thus forming a short-time cepstrogram
