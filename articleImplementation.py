@@ -8,6 +8,8 @@ import numpy as np
 import utils
 
 path = utils.prefix + '/Initial Breath Examples/'
+# path = utils.prefix + '/METU Recordings/hh2_breath/'
+# path = utils.prefix + '/METU Recordings/'
 
 '''
 II. INITIAL DETECTION ALGORITHM
@@ -49,14 +51,16 @@ packing property of the SVD transform [28], the singular vector is expected to c
 the breath event, and thus, improve the separation ability of the algorithm when used together with the template matrix
 in the calculation of the breath similarity measure of test signals (see Section II-C).
 '''
-# todo - hh: how to choose axis here. concatanate on mfcc features or subframes? (concatanated on subframes for now)
-# todo - hh: This decision also changes the shape of singularVector (1d array with length 13(mfcc feature count)for now)
 # Concat matrix
 concatanatedMatrix = np.concatenate(allMatrixesOfExampleSet, axis=0)
 # print(concatanatedMatrix.shape)
 # Compute SVD
-singularVector = np.linalg.svd(concatanatedMatrix, compute_uv=False)
+# todo - hh : check if SVD implementation is correct
+singularVectors, singularValues, _ = np.linalg.svd(concatanatedMatrix, full_matrices=True)
+singularVector = singularVectors[np.argmax(np.abs(singularValues))]
 # print(singularVector)
+# Normalizer
+# print(np.linalg.norm(singularVector, ord=np.inf))
 # Normalize by max norm
 singularVector = singularVector / np.linalg.norm(singularVector, ord=np.inf)
 # print(singularVector)
@@ -72,10 +76,8 @@ background music), sampled with 44 kHz. The signal is divided into consecutive a
 energy, zero-crossing rate, and spectral slope (see below). Each of these is computed over a window located around the
 center of the frame.
 '''
-# todo - hh: what does the last sentence above mean?
-
 # Read input audio signal
-path = utils.prefix + '/METU Recordings/hh2_48kHz_Mono_32bitFloat.wav'
+path = '.\whole_speech.wav'
 fs, inputSignal = utils.readMonoWav(path)
 
 # print('Input File:', path)
@@ -88,10 +90,12 @@ derived from each breath example in the training phase.
 '''
 # todo - ai: change hop size to 0.010, now its 10 seconds for debugging purposes
 hopSize = 10  # hop size is 10 ms for detection phase
-windowLengthInSamples = 0.010 * fs  # window size is 10 ms for detection phase
+windowLengthInSamples = int(0.010 * fs)  # window size is 10 ms for detection phase
 for i in range(0, len(inputSignal), int(hopSize * fs)):
     # Index to stop: At the end of the analysis frame, index must stop before the file ends.
     # This assignment adjusts the last step size according to info above.
+    # print(len(inputSignal))
+    # print(i + int(frameLengthInSecs * fs))
     stopIdx = min(i + int(frameLengthInSecs * fs), len(inputSignal) - 1)
     analysisFrame = inputSignal[i:stopIdx]
 
@@ -104,8 +108,7 @@ for i in range(0, len(inputSignal), int(hopSize * fs)):
     then converted to a logarithmic scale
     E, dB = 10 * log10(E)
     '''
-    # todo - ai: implement STE on center of the analysis frame
-    utils.calcShortTimeEnergy(analysisFrame)
+    ste = utils.calcShortTimeEnergy(analysisFrame, windowLengthInSamples)
     ''' Step II-B.3:
     The zero-crossing rate (ZCR) is defined as the number of times the audio waveform changes its sign, normalized by
     the window length N in samples (corresponding to 10 ms)

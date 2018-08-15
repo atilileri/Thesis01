@@ -27,11 +27,13 @@ def readMonoWav(pathToFile):
     samplingRate, samples = scipy.io.wavfile.read(pathToFile)
     # stereo to mono
     if len(samples.shape) > 1 and 1 < samples.shape[1]:  # python evals expressions LTR so it's safe to write this
-        # todo - hh: maybe all channels can be used as different inputs to augment the data?
-        samplesMono = np.mean(samples, axis=1, dtype=samples.dtype)
+        # maybe all channels can be used as different inputs to augment the data. Now using only first channel
+        # Sample mean convert code
+        # samplesMono = np.mean(samples, axis=1, dtype=samples.dtype)
+        # Sample first channel code
+        samplesMono = samples[:, 0]
     else:
         samplesMono = samples
-
     return samplingRate, samplesMono
 
 
@@ -69,7 +71,6 @@ def createMfccMatrix(sig,
     subframeDurationBySample = int(subframeDuration * sampRate)
     alpha = 0.95
 
-    # todo - hh: ask if lfilter() works true?
     ''' Step II-A.2:
     Each breath example is divided into short consecutive subframes, with duration of 10 ms and hop size of 5 ms.
     Each subframe is then pre-emphasized using a first-order difference filter ( H(z) = 1 - alpha * z^-1 
@@ -82,7 +83,8 @@ def createMfccMatrix(sig,
         stopIdx = min(i + subframeDurationBySample, len(sig) - 1)
         # print(i)
         # print(stopIdx)
-        emphasized = signal.lfilter([1, -1 * alpha], 1., sig[i:stopIdx])
+        # todo - hh: ask if lfilter() is implemented right?
+        emphasized = signal.lfilter([1, -1 * alpha], [1., 1.], sig[i:stopIdx])
 
         ''' Step II-A.3:
         For each breath example, the MFCC are computed for every subframe, thus forming a short-time cepstrogram
@@ -119,5 +121,19 @@ def createMfccMatrix(sig,
     return mfccMatrix
 
 
-def calcShortTimeEnergy(sig):
-    return sig
+def getCenterWindow(frame, windowLength):
+    midIndex = len(frame) // 2
+    halfWindowLen = windowLength / 2
+    if midIndex >= halfWindowLen:
+        # we cast to int below, instead of above(where halfWindowLen is defined)
+        # because otherwise our slice is one element short, for odd windowLength values
+        centerWindow = frame[int(midIndex-halfWindowLen):int(midIndex+halfWindowLen)]
+    else:
+        centerWindow = None
+    return centerWindow
+
+
+# Short Time Energy is computed over a window located around the center of the frame
+def calcShortTimeEnergy(analFrame, winLenInSamples):
+    window = getCenterWindow(analFrame, winLenInSamples)
+    return np.sum(np.square(window)) / len(window)
