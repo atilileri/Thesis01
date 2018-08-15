@@ -97,6 +97,7 @@ for i in range(0, len(inputSignal), int(hopSize * fs)):
     # print(len(inputSignal))
     # print(i + int(frameLengthInSecs * fs))
     stopIdx = min(i + int(frameLengthInSecs * fs), len(inputSignal) - 1)
+
     analysisFrame = inputSignal[i:stopIdx]
 
     mfccMatrix = utils.createMfccMatrix(analysisFrame, fs)
