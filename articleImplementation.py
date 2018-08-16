@@ -77,6 +77,7 @@ energy, zero-crossing rate, and spectral slope (see below). Each of these is com
 center of the frame.
 '''
 # Read input audio signal
+# Note that this file can not be added to github, because it is larger than the size limit(100MB)
 path = '.\whole_speech.wav'
 fs, inputSignal = utils.readMonoWav(path)
 
@@ -114,6 +115,5 @@ for i in range(0, len(inputSignal), int(hopSize * fs)):
     The zero-crossing rate (ZCR) is defined as the number of times the audio waveform changes its sign, normalized by
     the window length N in samples (corresponding to 10 ms)
     '''
-
     # todo - ai: add equation for zcr here.
     # todo - ai: implement ZCR on center of the analysis frame
