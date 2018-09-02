@@ -6,10 +6,18 @@ https://pytftb.readthedocs.io/en/master/nonstationary_signals.html#instantaneous
 import numpy as np
 from tftb.generators import fmlin
 from tftb.processing import inst_freq, plotifl
+from utils import readMonoWav
+import numpy
+numpy.set_printoptions(edgeitems=50)
 
-signal, _ = fmlin(256)
-time_samples = np.arange(3, 257)
+signal = readMonoWav('./METU Recordings/hh2_48kHz_Mono_32bitFloat.wav')[1]
+print(signal, len(signal))
+print('##########################################################################')
+# signal, _ = fmlin(256)
+# time_samples = np.arange(3, 257)
+
 ifr = inst_freq(signal)[0]
-plotifl(time_samples, ifr)
+print(ifr, len(ifr))
 
-# todo - atili: try with whole_speech and hh2 wave files
+# todo - atili: try more with whole_speech and hh2 wave files
+# plotifl(time_samples, ifr)
