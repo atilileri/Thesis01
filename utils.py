@@ -41,6 +41,7 @@ def readMonoWav(pathToFile):
 def readExampleSet(folderPath):
     exampleSet = []
     minlen = 999999  # pseudo big number
+    sampleRate = 0
     '''
     Step II-A.1:
     Several signals containing isolated breath examples are selected, forming the example set. From each example, a section
@@ -136,4 +137,16 @@ def getCenterWindow(frame, windowLength):
 # Short Time Energy is computed over a window located around the center of the frame
 def calcShortTimeEnergy(analFrame, winLenInSamples):
     window = getCenterWindow(analFrame, winLenInSamples)
-    return np.sum(np.square(window)) / len(window)
+    shortTimeEnergy = np.sum(np.square(window)) / len(window)
+    # Have it also in dB
+    energyInDb = 10 * np.log10(shortTimeEnergy)
+    return shortTimeEnergy, energyInDb
+
+
+# Zero Crossing Rate is computed over a window located around the center of the frame
+def calcZeroCrossingRate(analFrame, winLenInSamples):
+    window = getCenterWindow(analFrame, winLenInSamples)
+    zeroCrossings = 0
+    for i in range(1, len(window)):
+        zeroCrossings += 0.5 * np.abs(np.sign(window[i]) - np.sign(window[i-1]))
+    return zeroCrossings / len(window)

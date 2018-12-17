@@ -110,10 +110,25 @@ for i in range(0, len(inputSignal), int(hopSize * fs)):
     then converted to a logarithmic scale
     E, dB = 10 * log10(E)
     '''
-    ste = utils.calcShortTimeEnergy(analysisFrame, windowLengthInSamples)
+    ste, db = utils.calcShortTimeEnergy(analysisFrame, windowLengthInSamples)
     ''' Step II-B.3:
     The zero-crossing rate (ZCR) is defined as the number of times the audio waveform changes its sign, normalized by
     the window length N in samples (corresponding to 10 ms)
+    ZCR = 1/N * Epsilon(goes n=[N0+1, N0+(N-1)])( 0.5 * abs( sign(x[n]) - sign(x[n-1]) ) )
     '''
-    # todo - ai: add equation for zcr here.
-    # todo - ai: implement ZCR on center of the analysis frame
+    zcr = utils.calcZeroCrossingRate(analysisFrame, windowLengthInSamples)
+    ''' Step II-B.4:
+    The spectral slope is computed by taking the discrete Fourier transform of the analysis window, evaluating its
+    magnitude at frequencies of pi/2 and pi (corresponding here to 11 and 22 kHz, respectively), and computing the
+    slope of the straight line fit between these two points. It is known that in voiced speech most of the spectral
+    energy is contained in the lower frequencies (below 4 kHz). Therefore, in voiced speech, the spectrum is expected to 
+    be rather flat between 11 and 22 kHz. In periods of silence, the waveform is close to random, which also leads to a
+    relatively flat spectrum throughout the entire band. This suggests that the spectral slope in voiced/silence parts
+    would yield low values, when measured as described previously. On the other hand, in breath sounds, like in most 
+    unvoiced phonemes, there is still a significant amount of energy in the middle frequency band (10–15 kHz) and
+    relatively low energy in the high band (22 kHz). Thus, the spectral slope is expected to be steeper, and could be
+    used to differentiate between voiced/silence and unvoiced/breath. As such, the    spectral slope is used here as an
+    additional parameter for identifying the edges of the breath (see Section III).
+    '''
+    # todo - ai: implement spectral slope on center of the analysis frame
+    # todo - hh: help here :)
