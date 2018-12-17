@@ -11,11 +11,12 @@ import numpy
 from scipy.signal import hilbert
 numpy.set_printoptions(edgeitems=50)
 
-sig = readMonoWav('./METU Recordings/hh2_48kHz_Mono_32bitFloat.wav')[1]
+# sig = readMonoWav('./METU Recordings/hh2_48kHz_Mono_32bitFloat.wav')[1]
 # sig = readMonoWav('./METU Recordings/hh2_breath/hh2_04_00.34.164_270_en.wav')[1]
 # sig = readMonoWav('./METU Recordings/hh2_breath/hh2_09_01.20.741_134_en2.wav')[1]
 # sig = readMonoWav('./METU Recordings/hh2_breath/hh2_09_01.20.741_134_en3_16bit.wav')[1]
 # sig = readMonoWav('./METU Recordings/hh2_breath/hh2_23_03.02.050_149_tr.wav')[1]
+sig = readMonoWav('./METU Recordings/hh2_withEdges/hh2_random001.wav')[1]
 
 print(sig, len(sig))
 print('##########################################################################')
@@ -55,10 +56,16 @@ print('calc is over')
 print(numpy.shape(instf))
 print('plotting...')
 
+plt.plot(timestamps, sig[:len(timestamps)])
+plt.grid(True, linestyle='dotted')
+plt.xlabel('Time (Samples)')
+plt.ylabel('Amplitude')
+plt.title('Signal')
+plt.show()
+
 plt.plot(timestamps, instf)
 plt.grid(True, linestyle='dotted')
 plt.xlabel('Time (Samples)')
 plt.ylabel('Frequency')
 plt.title('Instantaneous frequency estimation')
 plt.show()
-
