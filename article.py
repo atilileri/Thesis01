@@ -100,7 +100,10 @@ for i in range(0, len(inputSignal), int(hopSize * fs)):
     stopIdx = min(i + int(frameLengthInSecs * fs), len(inputSignal) - 1)
 
     analysisFrame = inputSignal[i:stopIdx]
+    centerWindow = utils.getCenterWindow(analysisFrame, windowLengthInSamples)
 
+    # todo - ai : createMfccMatrix() should work with centerWindow, not analysisFrame. Throws error now. Investigate!
+    # The Cepstrogram (MFCC matrix) is computed over a window located around the center of the frame
     mfccMatrix = utils.createMfccMatrix(analysisFrame, fs)
     # print(np.shape(mfccMatrix))
     ''' Step II-B.2:
@@ -110,13 +113,15 @@ for i in range(0, len(inputSignal), int(hopSize * fs)):
     then converted to a logarithmic scale
     E, dB = 10 * log10(E)
     '''
-    ste, db = utils.calcShortTimeEnergy(analysisFrame, windowLengthInSamples)
+    # Short Time Energy is computed over a window located around the center of the frame
+    ste, db = utils.calcShortTimeEnergy(centerWindow)
     ''' Step II-B.3:
     The zero-crossing rate (ZCR) is defined as the number of times the audio waveform changes its sign, normalized by
     the window length N in samples (corresponding to 10 ms)
     ZCR = 1/N * Epsilon(goes n=[N0+1, N0+(N-1)])( 0.5 * abs( sign(x[n]) - sign(x[n-1]) ) )
     '''
-    zcr = utils.calcZeroCrossingRate(analysisFrame, windowLengthInSamples)
+    # Zero Crossing Rate is computed over a window located around the center of the frame
+    zcr = utils.calcZeroCrossingRate(centerWindow)
     ''' Step II-B.4:
     The spectral slope is computed by taking the discrete Fourier transform of the analysis window, evaluating its
     magnitude at frequencies of pi/2 and pi (corresponding here to 11 and 22 kHz, respectively), and computing the
@@ -127,8 +132,23 @@ for i in range(0, len(inputSignal), int(hopSize * fs)):
     would yield low values, when measured as described previously. On the other hand, in breath sounds, like in most 
     unvoiced phonemes, there is still a significant amount of energy in the middle frequency band (10–15 kHz) and
     relatively low energy in the high band (22 kHz). Thus, the spectral slope is expected to be steeper, and could be
-    used to differentiate between voiced/silence and unvoiced/breath. As such, the    spectral slope is used here as an
+    used to differentiate between voiced/silence and unvoiced/breath. As such, the spectral slope is used here as an
     additional parameter for identifying the edges of the breath (see Section III).
     '''
-    # todo - ai: implement spectral slope on center of the analysis frame
-    # todo - hh: help here :)
+    slope = utils.calcSpectralSlope(centerWindow, fs)
+
+'''
+C.Computation of the Breath Similarity Measure
+Once the aforementioned parameters are computed for a given frame Xi, its short-time cepstrogram (MFCC matrix) is
+used for calculating its breath similarity measure. The similarity measure, denoted B(Xi, T, V, S), is computed between 
+the cepstrogram of the frame, M(Xi), the template cepstrogram T (with V being the variance matrix) and the singular 
+vector S . The steps of the computation are as follows (Fig. 6):
+'''
+
+''' Step II-C.1:
+The normalized difference matrix  D = (M(Xi) - T) / V  is computed. The normalization (element-by-element) by the 
+variance matrix is performed in order to compensate for the differences in the distributions of the various cepstral
+coefficients.
+'''
+# todo = ai : implement the matrix calculation
+# keep going!!

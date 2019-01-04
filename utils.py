@@ -134,19 +134,49 @@ def getCenterWindow(frame, windowLength):
     return centerWindow
 
 
-# Short Time Energy is computed over a window located around the center of the frame
-def calcShortTimeEnergy(analFrame, winLenInSamples):
-    window = getCenterWindow(analFrame, winLenInSamples)
-    shortTimeEnergy = np.sum(np.square(window)) / len(window)
+def calcShortTimeEnergy(window):
+    """ calculates short-time energy of a given window
+    The short-time energy is computed according to the following:
+    E = 1/N * Epsilon(goes n=[N0, N0+(N-1)])(x^2[n])
+    where x[n] is the sampled audio signal, and N is the window length in samples (corresponding to 10 ms). It is
+    then converted to a logarithmic scale
+    E, dB = 10 * log10(E)
+    """
+    squared = np.square(window, dtype='int64')
+    summed = np.sum(squared, dtype='int64')
+    shortTimeEnergy = summed / len(window)
     # Have it also in dB
     energyInDb = 10 * np.log10(shortTimeEnergy)
     return shortTimeEnergy, energyInDb
 
 
-# Zero Crossing Rate is computed over a window located around the center of the frame
-def calcZeroCrossingRate(analFrame, winLenInSamples):
-    window = getCenterWindow(analFrame, winLenInSamples)
+def calcZeroCrossingRate(window):
+    """ calculates zero-crossing rate of a given window
+    The zero-crossing rate (ZCR) is defined as the number of times the audio waveform changes its sign, normalized by
+    the window length N in samples (corresponding to 10 ms)
+    ZCR = 1/N * Epsilon(goes n=[N0+1, N0+(N-1)])( 0.5 * abs( sign(x[n]) - sign(x[n-1]) ) )
+    """
     zeroCrossings = 0
     for i in range(1, len(window)):
         zeroCrossings += 0.5 * np.abs(np.sign(window[i]) - np.sign(window[i-1]))
     return zeroCrossings / len(window)
+
+
+def calcSpectralSlope(window, fs):
+    """ calculates spectral slope of a given window
+    The spectral slope is computed by taking the discrete Fourier transform of the analysis window, evaluating its
+    magnitude at frequencies of pi/2 and pi (corresponding here to 11 and 22 kHz, respectively), and computing the
+    slope of the straight line fit between these two points.
+    """
+    # todo - hh: ask if implementation is right
+    magnitudes = np.abs(np.fft.fft(window))
+    frequencies = np.fft.fftfreq(len(window), 1/fs)
+    # find closest frequency index to fs/4
+    indexPiOver2 = np.argmin(np.abs(frequencies - fs // 4))  # index at fs/4 (corresponding to pi/2)
+    indexPi = np.argmin(np.abs(frequencies - fs // 2))  # index at fs/2 (corresponding to pi)
+    y1 = magnitudes[indexPiOver2]
+    y2 = magnitudes[indexPi]
+    x1 = frequencies[indexPiOver2]
+    x2 = frequencies[indexPi]
+    # todo - ai: I added 10k factor below to make number compareable. Check for future
+    return np.abs((y2-y1) / ((x2-x1)/10000))
