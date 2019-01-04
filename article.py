@@ -55,7 +55,6 @@ in the calculation of the breath similarity measure of test signals (see Section
 concatanatedMatrix = np.concatenate(allMatrixesOfExampleSet, axis=0)
 # print(concatanatedMatrix.shape)
 # Compute SVD
-# todo - hh : check if SVD implementation is correct
 singularVectors, singularValues, _ = np.linalg.svd(concatanatedMatrix, full_matrices=True)
 singularVector = singularVectors[np.argmax(np.abs(singularValues))]
 # print(singularVector)
