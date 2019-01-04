@@ -9,6 +9,7 @@ from tftb.processing import inst_freq
 from utils import readMonoWav
 from scipy.signal import hilbert
 import matplotlib.pyplot as plt
+import scipy.signal as sp
 import numpy
 numpy.set_printoptions(edgeitems=50)
 
@@ -24,7 +25,7 @@ print(len(sig))
 print(sampRate)
 print('######')
 
-readWholeFile = True  # for trials only
+readWholeFile = True  # set to False for trials only
 
 if readWholeFile is False:
     # take a sample for better visualising, huge chunks crashes in hilbert()
@@ -45,23 +46,32 @@ for i in range(len(sig)//partLen):
         partInstf, _ = inst_freq(hilbert(partImfs[j]))
         if i == 0:
             imfs.append([])
-            instf.append([])
+            instf.append([])  # todo - ai: remove these after refactoring to new instf calc
         imfs[j].extend(partImfs[j])
-        instf[j].extend(partInstf)
+        instf[j].extend(partInstf)  # todo - ai: remove these after refactoring to new instf calc
 
-    if i == 0:  # todo: remove whole if block after use
+    if i == 0:  # todo - ai: remove whole if block after use
         print(numpy.shape(partImfs))
         plot_imfs(part, partImfs)
+
+for k in range(len(imfs)):
+    hx = sp.hilbert(imfs[k])
+    phx = numpy.unwrap(numpy.arctan2(hx.imag, hx.real))
+    partInstf = sampRate/(2*numpy.pi)*numpy.diff(phx)
+    instf[k].clear()
+    instf[k].extend(partInstf)
+    instf[k] /= max(instf[k])  # normalization
 
 print(numpy.shape(instf))
 print('plotting...')
 for i in range(numpy.shape(instf)[0]):
-    plt.plot(range(len(sig)), sig, label="Orig", color='gray')
-    plt.plot(range(len(instf[i])), instf[i], label="Instf", color='green')
-    plt.plot(range(len(imfs[i])), imfs[i], label="Imf", color='orange')
+    plt.plot(numpy.divide(range(len(sig)), sampRate), sig, label="Orig", color='gray', linewidth=0.5)
+    plt.plot(numpy.divide(range(len(instf[i])), sampRate), instf[i], label="Instf", color='green', linewidth=0.9)
+    plt.plot(numpy.divide(range(len(imfs[i])), sampRate), imfs[i], label="Imf", color='orange', linewidth=0.75)
     plt.grid(True, linestyle='dotted')
     plt.xlabel('Time (Samples)')
     plt.ylabel('Amplitude')
     plt.title('Instant Freq of IMF #' + str(i+1))
     plt.legend()
+    plt.savefig("graphImf"+str(i+1)+".svg")
     plt.show()
