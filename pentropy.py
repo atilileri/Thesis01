@@ -42,7 +42,7 @@ for i in range(len(sig) // partLen):
 psdSum = np.sum(psdArrv1)
 for i in range(len(sig) // partLen):
     normPsd = psdArrv1[i] / psdSum
-    pse = -np.sum(normPsd*np.log2(normPsd))
+    pse = -np.sum(normPsd*np.log2(normPsd + 0.00000001))
     pseArrv1.append(pse)
 
 print('plotting...')
