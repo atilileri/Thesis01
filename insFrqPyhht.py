@@ -33,7 +33,7 @@ if readWholeFile is False:
 
 instf = []
 
-partLen = sampRate // 10  # divide into 100 ms parts
+partLen = sampRate // 10  # divide into 100 ms parts - shorter durations lead to less imfs
 imfs = []
 for i in range(len(sig)//partLen):
     part = sig[i*partLen:(i+1)*partLen]
