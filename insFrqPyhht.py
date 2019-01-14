@@ -39,7 +39,8 @@ partCount = int(np.ceil(len(sig) / partLen))
 for i in range(partCount):
     startIndex = i*partLen
     endIndex = (i+1)*partLen
-    # temporarily adding previous and following parts for more accurate calculations
+    # temporarily adding neighbor parts for more accurate calculations
+    # todo - hh : only half or quarter of neighbor parts can be enough?
     if i > 0:  # if not first part
         startIndex -= partLen
     if i < partCount - 2:  # until second from last part
@@ -56,7 +57,7 @@ for i in range(partCount):
         phx = np.unwrap(np.arctan2(hx.imag, hx.real))
         tempInstf = sampRate / (2 * np.pi) * np.diff(phx)
 
-        # removing previous and following parts
+        # removing neighbor parts after calculations
         if i > 0:  # not first part
             tempInstf = tempInstf[partLen:]
         if i < partCount - 2:  # until second from last part
