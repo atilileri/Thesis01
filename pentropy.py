@@ -24,7 +24,10 @@ if readWholeFile is False:
     # take a sample for better visualising, huge chunks crashes in hilbert()
     sig = sig[sampRate*0:sampRate*1]  # read only first 1 second
 
+sig = sig / max(sig)  # normalization
+
 partLen = sampRate // 100  # divide into 10 ms parts
+partCount = int(np.ceil(len(sig) / partLen))
 """
 PSE Implementation v1
 Inspired from :
@@ -32,7 +35,7 @@ https://dsp.stackexchange.com/questions/23689/what-is-spectral-entropy
 """
 psdArrv1 = []
 pseArrv1 = []
-for i in range(len(sig) // partLen):
+for i in range(partCount):
     part = sig[i*partLen:(i+1)*partLen]
     w = np.fft.fft(part)
     wAbs = np.abs(w, dtype=float)
@@ -42,14 +45,16 @@ for i in range(len(sig) // partLen):
 psdSum = np.sum(psdArrv1)
 for i in range(len(sig) // partLen):
     normPsd = psdArrv1[i] / psdSum
-    pse = -np.sum(normPsd*np.log2(normPsd + 0.00000001))
+    if normPsd == 0:
+        normPsd = 0.00000001
+    pse = -np.sum(normPsd*np.log(normPsd))
     pseArrv1.append(pse)
 
 print('plotting...')
 plt.plot(np.divide(range(len(sig)), sampRate), sig, label="Orig", color='0.75', linewidth=0.5)
 plt.plot(np.multiply(range(len(pseArrv1)), partLen) / sampRate, pseArrv1, label="pse1", color='blue', linewidth=1)
 plt.grid(True, linestyle='dotted')
-plt.xlabel('Time (Samples)')
+plt.xlabel('Time (Seconds)')
 plt.ylabel('Amplitude')
 plt.title('Power Spectral Energy')
 plt.legend()
