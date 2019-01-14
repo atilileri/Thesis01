@@ -30,6 +30,7 @@ if readWholeFile is False:
 
 # sig = sig / max(sig)  # normalization
 
+imfsAll = None
 instfAll = None
 partLen = sampRate // 10  # divide into 100 ms parts - shorter durations lead to less imfs
 partCount = int(np.ceil(len(sig) / partLen))
@@ -48,13 +49,14 @@ for i in range(partCount):
 
     # calculate imfs for the part
     decomposer = EMD(part)
-    imfsOfThisPart = list(decomposer.decompose())[:-1]  # last element is residue
+    imfsPart = list(decomposer.decompose())[:-1]  # last element is residue
 
     # todo - ai : normalize imfs here to handle negative parts
 
     # calculate instant frequency for each imf of the part
     instfPart = []
-    for imf in imfsOfThisPart:
+    truncatedImfs = []
+    for imf in imfsPart:
         hx = sp.hilbert(imf)
         phx = np.unwrap(np.arctan2(hx.imag, hx.real))
         tempInstf = sampRate / (2 * np.pi) * np.diff(phx)
@@ -62,12 +64,28 @@ for i in range(partCount):
         # removing neighbor parts after calculations
         if i > 0:  # not first part
             tempInstf = tempInstf[partLen:]
+            imf = imf[partLen:]
         if i < partCount - 2:  # until second from last part
             tempInstf = tempInstf[:-partLen]
+            imf = imf[:-partLen]
         if i == partCount - 2:  # second from last part (last part's len may not be partLen)
             tempInstf = tempInstf[:-(len(sig) % partLen)]
-
+            imf = imf[:-(len(sig) % partLen)]
+        truncatedImfs.append(imf)
         instfPart.append(tempInstf)
+
+    # done with extra parts, set truncated imfs
+    imfsPart = truncatedImfs
+
+    # concatanate all parts' imfs together
+    if imfsAll is None:
+        imfsAll = list(imfsPart)
+    else:
+        while len(imfsAll) < len(imfsPart):  # if instf of this part has MORE rows
+            imfsAll.append(np.zeros(len(imfsAll[0])))  # add new imfs row to main list
+        while len(imfsPart) < len(imfsAll):  # if instf of this part has LESS rows
+            imfsPart.append(np.zeros(len(imfsPart[0])))  # add new imf row to part
+        imfsAll = list(np.concatenate((imfsAll, imfsPart), axis=1))
 
     # concatanate all parts' instant frequency together
     if instfAll is None:
@@ -79,10 +97,13 @@ for i in range(partCount):
             instfPart.append(np.zeros(len(instfPart[0])))  # add new imf row to part
         instfAll = list(np.concatenate((instfAll, instfPart), axis=1))
 
-print(np.shape(instfAll))
+print('IMFs:', np.shape(imfsAll))
+print('InstFs:', np.shape(instfAll))
 
 # for inf in instfAll:
 #     inf /= max(inf)  # normalization
+# for imf in imfsAll:
+#     imf /= max(imf)  # normalization
 
 # todo - ai: plot spectogram of each frame by summing each freq bin in each imf's instf
 print('plotting...')
@@ -90,7 +111,7 @@ print('plotting...')
 for i in range(np.shape(instfAll)[0]):
     plt.plot(np.divide(range(len(sig)), sampRate), sig, label="Orig", color='gray', linewidth=0.5)
     plt.plot(np.divide(range(len(instfAll[i])), sampRate), instfAll[i], label="Instf", color='green', linewidth=0.9)
-    # plt.plot(np.divide(range(len(imfs[i])), sampRate), imfs[i], label="Imf", color='orange', linewidth=0.75)
+    plt.plot(np.divide(range(len(imfsAll[i])), sampRate), imfsAll[i], label="Imf", color='orange', linewidth=0.75)
     plt.grid(True, linestyle='dotted')
     plt.xlabel('Time (Seconds)')
     plt.ylabel('Amplitude')
