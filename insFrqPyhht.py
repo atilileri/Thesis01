@@ -4,10 +4,7 @@ https://pyhht.readthedocs.io/en/latest/apiref/pyhht.html#pyhht.utils.inst_freq
 [2018.08.30]: Tried, works as example
 """
 from pyhht.emd import EMD
-from pyhht.visualization import plot_imfs
-from tftb.processing import inst_freq
 from utils import readMonoWav
-from scipy.signal import hilbert
 import matplotlib.pyplot as plt
 import scipy.signal as sp
 import numpy as np
@@ -49,8 +46,13 @@ for i in range(partCount):
         endIndex += len(sig) % partLen
     part = sig[startIndex:endIndex]
 
+    # calculate imfs for the part
     decomposer = EMD(part)
     imfsOfThisPart = list(decomposer.decompose())[:-1]  # last element is residue
+
+    # todo - ai : normalize imfs here to handle negative parts
+
+    # calculate instant frequency for each imf of the part
     instfPart = []
     for imf in imfsOfThisPart:
         hx = sp.hilbert(imf)
@@ -67,6 +69,7 @@ for i in range(partCount):
 
         instfPart.append(tempInstf)
 
+    # concatanate all parts' instant frequency together
     if instfAll is None:
         instfAll = list(instfPart)
     else:
@@ -81,6 +84,7 @@ print(np.shape(instfAll))
 # for inf in instfAll:
 #     inf /= max(inf)  # normalization
 
+# todo - ai: plot spectogram of each frame by summing each freq bin in each imf's instf
 print('plotting...')
 
 for i in range(np.shape(instfAll)[0]):
