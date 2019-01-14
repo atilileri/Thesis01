@@ -96,6 +96,7 @@ for i in range(np.shape(instfAll)[0]):
     plt.ylabel('Amplitude')
     plt.title('Instant Freq of IMF #' + str(i+1))
     plt.legend()
-    plt.savefig("graphImf"+str(i+1)+".svg")
+    plt.savefig("plots/graphImf"+str(i+1)+".svg")
+    plt.savefig("plots/graphImf"+str(i+1)+".png")
     plt.show()
 

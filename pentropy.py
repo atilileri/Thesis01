@@ -24,7 +24,7 @@ if readWholeFile is False:
     # take a sample for better visualising, huge chunks crashes in hilbert()
     sig = sig[sampRate*0:sampRate*1]  # read only first 1 second
 
-sig = sig / max(sig)  # normalization
+# sig = sig / max(sig)  # normalization
 
 partLen = sampRate // 100  # divide into 10 ms parts
 partCount = int(np.ceil(len(sig) / partLen))
@@ -41,12 +41,12 @@ for i in range(partCount):
     wAbs = np.abs(w, dtype=float)
     wSq = np.square(wAbs, dtype=float)
     psd = wSq / len(w)
+    if len(psd) < partLen:
+        psd = np.append(psd, np.full(partLen-len(psd), 0.00000001))
     psdArrv1.append(psd)
 psdSum = np.sum(psdArrv1)
-for i in range(len(sig) // partLen):
+for i in range(partCount):
     normPsd = psdArrv1[i] / psdSum
-    if normPsd == 0:
-        normPsd = 0.00000001
     pse = -np.sum(normPsd*np.log(normPsd))
     pseArrv1.append(pse)
 
@@ -58,7 +58,8 @@ plt.xlabel('Time (Seconds)')
 plt.ylabel('Amplitude')
 plt.title('Power Spectral Energy')
 plt.legend()
-plt.savefig("pseV1.svg")
+plt.savefig("plots/pseV1.svg")
+plt.savefig("plots/pseV1.png")
 plt.show()
 
 
