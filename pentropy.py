@@ -51,9 +51,12 @@ for i in range(partCount):
     pseArrv1.append(pse)
 
 print('plotting...')
-plt.plot(np.divide(range(len(sig)), sampRate), sig, label="Orig", color='0.75', linewidth=0.5)
-plt.plot(np.multiply(range(len(pseArrv1)), partLen) / sampRate, pseArrv1, label="pse1", color='blue', linewidth=1)
-plt.grid(True, linestyle='dotted')
+plt.plot(np.divide(range(len(sig)), sampRate), sig,
+         label="Orig", color='0.75', linewidth=0.5, zorder=-10)
+plt.plot(np.multiply(range(len(pseArrv1)), partLen) / sampRate, pseArrv1,
+         label="pse1", color='blue', linewidth=1, zorder=-5)
+plt.grid(True, color='darkred', linewidth=0.2, zorder=0)
+plt.xticks(np.arange(0, len(sig) / sampRate, step=0.1), rotation=90)
 plt.xlabel('Time (Seconds)')
 plt.ylabel('Amplitude')
 plt.title('Power Spectral Energy')

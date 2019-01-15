@@ -109,10 +109,14 @@ print('InstFs:', np.shape(instfAll))
 print('plotting...')
 
 for i in range(np.shape(instfAll)[0]):
-    plt.plot(np.divide(range(len(sig)), sampRate), sig, label="Orig", color='gray', linewidth=0.5)
-    plt.plot(np.divide(range(len(instfAll[i])), sampRate), instfAll[i], label="Instf", color='green', linewidth=0.9)
-    plt.plot(np.divide(range(len(imfsAll[i])), sampRate), imfsAll[i], label="Imf", color='orange', linewidth=0.75)
-    plt.grid(True, linestyle='dotted')
+    plt.plot(np.divide(range(len(sig)), sampRate), sig,
+             label="Orig", color='gray', linewidth=0.5, zorder=-3)
+    plt.plot(np.divide(range(len(instfAll[i])), sampRate), instfAll[i],
+             label="Instf", color='green', linewidth=0.9, zorder=-2)
+    plt.plot(np.divide(range(len(imfsAll[i])), sampRate), imfsAll[i],
+             label="Imf", color='orange', linewidth=0.75, zorder=-1)
+    plt.grid(True, color='darkred', linewidth=0.2, zorder=0)
+    plt.xticks(np.arange(0, len(sig) / sampRate, step=0.1), rotation=90)
     plt.xlabel('Time (Seconds)')
     plt.ylabel('Amplitude')
     plt.title('Instant Freq of IMF #' + str(i+1))
