@@ -110,8 +110,8 @@ for i in range(partCount):
 
 # 6. Find the instantaneous frequency on the normalized IMF.
 
-print('IMFs:', np.shape(imfsAll))
-print('InstFs:', np.shape(instfAll))
+print('IMFs:', imfsAll.shape)
+print('InstFs:', instfAll.shape)
 
 # for inf in instfAll:
 #     inf /= max(inf)  # normalization
