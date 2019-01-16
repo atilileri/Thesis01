@@ -49,9 +49,7 @@ for i in range(partCount):
 
     # calculate imfs for the part
     decomposer = EMD(part)
-    imfsPart = list(decomposer.decompose())[:-1]  # last element is residue
-
-    # todo - ai : normalize imfs here to handle negative parts
+    imfsPart = decomposer.decompose()[:-1]  # last element is residue
 
     # calculate instant frequency for each imf of the part
     instfPart = []
@@ -75,27 +73,42 @@ for i in range(partCount):
         instfPart.append(tempInstf)
 
     # done with extra parts, set truncated imfs
-    imfsPart = truncatedImfs
+    imfsPart = np.array(truncatedImfs)
 
     # concatanate all parts' imfs together
     if imfsAll is None:
-        imfsAll = list(imfsPart)
+        imfsAll = imfsPart
     else:
         while len(imfsAll) < len(imfsPart):  # if instf of this part has MORE rows
-            imfsAll.append(np.zeros(len(imfsAll[0])))  # add new imfs row to main list
+            imfsAll = np.append(imfsAll, np.zeros((1, len(imfsAll[0]))), axis=0)  # add new imfs row to main list
+
         while len(imfsPart) < len(imfsAll):  # if instf of this part has LESS rows
-            imfsPart.append(np.zeros(len(imfsPart[0])))  # add new imf row to part
-        imfsAll = list(np.concatenate((imfsAll, imfsPart), axis=1))
+            imfsPart = np.append(imfsPart, np.zeros((1, len(imfsPart[0]))), axis=0)  # add new imf row to part
+        imfsAll = np.concatenate((imfsAll, imfsPart), axis=1)
 
     # concatanate all parts' instant frequency together
     if instfAll is None:
-        instfAll = list(instfPart)
+        instfAll = instfPart
     else:
         while len(instfAll) < len(instfPart):  # if instf of this part has MORE rows
-            instfAll.append(np.zeros(len(instfAll[0])))  # add new imfs row to main list
+            instfAll = np.append(instfAll, np.zeros((1, len(instfAll[0]))), axis=0)  # add new imfs row to main list
         while len(instfPart) < len(instfAll):  # if instf of this part has LESS rows
-            instfPart.append(np.zeros(len(instfPart[0])))  # add new imf row to part
-        instfAll = list(np.concatenate((instfAll, instfPart), axis=1))
+            instfPart = np.append(instfPart, np.zeros((1, len(instfPart[0]))), axis=0)  # add new imf row to part
+        instfAll = np.concatenate((instfAll, instfPart), axis=1)
+
+# todo - ai : normalize imfs here to handle negative parts
+
+# 1. Take absolute value of IMF.
+
+# 2. Find extrema.
+
+# 3. Based on these extrema, construct envelope.
+
+# 4. Normalize IMF using the envelope. The FM part of signal becomes almost equal amplitude.
+
+# 5. Repeat process 2-4 after the amplitude of normalized IMF retains a straight line with identical value.
+
+# 6. Find the instantaneous frequency on the normalized IMF.
 
 print('IMFs:', np.shape(imfsAll))
 print('InstFs:', np.shape(instfAll))
