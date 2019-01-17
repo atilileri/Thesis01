@@ -31,6 +31,7 @@ if readWholeFile is False:
 # sig = sig / max(sig)  # normalization
 
 imfsAll = []
+imfsEnv = []
 instfAll = []
 partLen = sampRate // 10  # divide into 100 ms parts - shorter durations lead to less imfs
 partCount = int(np.ceil(len(sig) / partLen))
@@ -99,7 +100,6 @@ for i in range(partCount):
 # Normalization according to:
 # http://www.ancad.com.tw/newsletter/test
 # /On%20instantaneous%20frequency%20calculation%20o/On%20instantaneous%20frequency%20calculation%20o.htm
-imfsEnv = []
 # 1. Take absolute value of IMFs.
 imfsAll = np.abs(imfsAll)
 # 2. Find extrema.
