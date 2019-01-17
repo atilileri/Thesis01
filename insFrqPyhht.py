@@ -12,10 +12,10 @@ np.set_printoptions(edgeitems=50)
 
 # sampRate, sig = readMonoWav('./METU Recordings/hh2_48kHz_Mono_32bitFloat.wav')
 # sampRate, sig = readMonoWav('./METU Recordings/hh2_breath/hh2_04_00.34.164_270_en.wav')
-# sampRate, sig = readMonoWav('./METU Recordings/hh2_breath/hh2_09_01.20.741_134_en2.wav')
+sampRate, sig = readMonoWav('./METU Recordings/hh2_breath/hh2_09_01.20.741_134_en2.wav')
 # sampRate, sig = readMonoWav('./METU Recordings/hh2_breath/hh2_09_01.20.741_134_en3_16bit.wav')
 # sampRate, sig = readMonoWav('./METU Recordings/hh2_breath/hh2_23_03.02.050_149_tr.wav')
-sampRate, sig = readMonoWav('./METU Recordings/hh2_withEdges/hh2_random001.wav')
+# sampRate, sig = readMonoWav('./METU Recordings/hh2_withEdges/hh2_random001.wav')
 
 # print(sig)
 print(len(sig))
@@ -30,8 +30,8 @@ if readWholeFile is False:
 
 # sig = sig / max(sig)  # normalization
 
-imfsAll = None
-instfAll = None
+imfsAll = []
+instfAll = []
 partLen = sampRate // 10  # divide into 100 ms parts - shorter durations lead to less imfs
 partCount = int(np.ceil(len(sig) / partLen))
 for i in range(partCount):
@@ -73,61 +73,75 @@ for i in range(partCount):
         instfPart.append(tempInstf)
 
     # done with extra parts, set truncated imfs
-    imfsPart = np.array(truncatedImfs)
+    imfsPart = truncatedImfs
 
     # concatanate all parts' imfs together
-    if imfsAll is None:
+    if not imfsAll:
         imfsAll = imfsPart
     else:
+        print(np.shape(imfsAll), np.shape(imfsPart))
         while len(imfsAll) < len(imfsPart):  # if instf of this part has MORE rows
-            imfsAll = np.append(imfsAll, np.zeros((1, len(imfsAll[0]))), axis=0)  # add new imfs row to main list
-
+            imfsAll.append([0] * len(imfsAll[0]))  # add new imfs row to main list
         while len(imfsPart) < len(imfsAll):  # if instf of this part has LESS rows
-            imfsPart = np.append(imfsPart, np.zeros((1, len(imfsPart[0]))), axis=0)  # add new imf row to part
-        imfsAll = np.concatenate((imfsAll, imfsPart), axis=1)
+            imfsPart.append([0] * len(imfsPart[0]))  # add new imf row to part
+        imfsAll = list(np.concatenate((imfsAll, imfsPart), axis=1))
 
     # concatanate all parts' instant frequency together
-    if instfAll is None:
+    if not instfAll:
         instfAll = instfPart
     else:
         while len(instfAll) < len(instfPart):  # if instf of this part has MORE rows
-            instfAll = np.append(instfAll, np.zeros((1, len(instfAll[0]))), axis=0)  # add new imfs row to main list
+            instfAll.append([0] * len(instfAll[0]))  # add new imfs row to main list
         while len(instfPart) < len(instfAll):  # if instf of this part has LESS rows
-            instfPart = np.append(instfPart, np.zeros((1, len(instfPart[0]))), axis=0)  # add new imf row to part
-        instfAll = np.concatenate((instfAll, instfPart), axis=1)
+            instfPart.append([0] * len(instfPart[0]))  # add new imf row to part
+        instfAll = list(np.concatenate((instfAll, instfPart), axis=1))
 
-# todo - ai : normalize imfs here to handle negative parts
-
-# 1. Take absolute value of IMF.
-
+# Normalization according to:
+# http://www.ancad.com.tw/newsletter/test
+# /On%20instantaneous%20frequency%20calculation%20o/On%20instantaneous%20frequency%20calculation%20o.htm
+imfsEnv = []
+# 1. Take absolute value of IMFs.
+imfsAll = np.abs(imfsAll)
 # 2. Find extrema.
+for varImf in imfsAll:
+    peaks, _ = sp.find_peaks(varImf, height=0)  # peaks over 0
+    peaks = np.concatenate(([0], peaks, [len(varImf)-1]))
+    # 3. Based on these extrema, construct envelope.
+    envelope = np.interp(range(len(varImf)), peaks, varImf[peaks])
+    imfsEnv.append(envelope)
+    # 4. Normalize IMF using the envelope. The FM part of signal becomes almost equal amplitude.
+    varImf /= envelope
+    # 5. Repeat process 2-4 after the amplitude of normalized IMF retains a straight line with identical value.
+    # Not needed for now
 
-# 3. Based on these extrema, construct envelope.
+# todo - ai : Move Instant Freq Code Here
 
-# 4. Normalize IMF using the envelope. The FM part of signal becomes almost equal amplitude.
-
-# 5. Repeat process 2-4 after the amplitude of normalized IMF retains a straight line with identical value.
-
-# 6. Find the instantaneous frequency on the normalized IMF.
-
-print('IMFs:', imfsAll.shape)
-print('InstFs:', instfAll.shape)
+print('IMFs:', np.shape(imfsAll))
+print('IMFsEnv:', np.shape(imfsEnv))
+print('InstFs:', np.shape(instfAll))
 
 # for inf in instfAll:
 #     inf /= max(inf)  # normalization
 # for imf in imfsAll:
 #     imf /= max(imf)  # normalization
 
-# todo - ai: plot spectogram of each frame by summing each freq bin in each imf's instf
+# todo - ai : plot spectogram of each frame by summing each freq bin in each imf's instf
 print('plotting...')
 
-for i in range(np.shape(instfAll)[0]):
-    plt.plot(np.divide(range(len(sig)), sampRate), sig,
-             label="Orig", color='gray', linewidth=0.5, zorder=-3)
-    plt.plot(np.divide(range(len(instfAll[i])), sampRate), instfAll[i],
-             label="Instf", color='green', linewidth=0.9, zorder=-2)
+for i in range(np.shape(imfsAll)[0]):
+    # Plot Original Signal
+    # plt.plot(np.divide(range(len(sig)), sampRate), sig,
+    #          label="Orig", color='gray', linewidth=0.5, zorder=-3)
+    # todo - ai : uncomment below
+    # Plot Instant Frequencies
+    # plt.plot(np.divide(range(len(instfAll[i])), sampRate), instfAll[i],
+    #          label="Instf", color='green', linewidth=0.9, zorder=-2)
+    # Plot Imfs
     plt.plot(np.divide(range(len(imfsAll[i])), sampRate), imfsAll[i],
              label="Imf", color='orange', linewidth=0.75, zorder=-1)
+    # Plot Envelopes of Imfs
+    # plt.plot(np.divide(range(len(imfsEnv[i])), sampRate), imfsEnv[i],
+    #          label="Env")
     plt.grid(True, color='darkred', linewidth=0.2, zorder=0)
     plt.xticks(np.arange(0, len(sig) / sampRate, step=0.1), rotation=90)
     plt.xlabel('Time (Seconds)')
