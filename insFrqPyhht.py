@@ -173,7 +173,6 @@ print('Magnitudes:', np.shape(magAll))
 # for imf in imfsAll:
 #     imf /= max(imf)  # normalization
 
-# todo - ai : plot spectogram of each frame by summing each freq bin in each imf's instf
 print('plotting...')
 
 # Make plot with vertical (default) colorbar
