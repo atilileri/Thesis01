@@ -196,7 +196,7 @@ plt.savefig('plots/graphMag.png', dpi=200)
 
 plt.show()
 
-'''
+
 for i in range(np.shape(imfsAll)[0]):
     # Plot Original Signal
     # plt.plot(np.divide(range(len(sig)), sampRate), sig,
@@ -230,4 +230,4 @@ for i in range(np.shape(imfsAll)[0]):
     plt.savefig("plots/graphImf"+str(i+1)+".svg")
     plt.savefig("plots/graphImf"+str(i+1)+".png")
     plt.show()
-'''
+
