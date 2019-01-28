@@ -84,7 +84,6 @@ def createMfccMatrix(sig,
         stopIdx = min(i + subframeDurationBySample, len(sig) - 1)
         # print(i)
         # print(stopIdx)
-        # todo - hh: ask if lfilter() is implemented right?
         emphasized = signal.lfilter([1, -1 * alpha], [1., 1.], sig[i:stopIdx])
 
         ''' Step II-A.3:
@@ -103,8 +102,6 @@ def createMfccMatrix(sig,
                                                       samplerate=sampRate,
                                                       winlen=subframeDuration,
                                                       winstep=hopSize)[0])  # read above explanation for '[0]' index.
-        # todo - hh: ask above design choice and/or implementation is true. we can apply the filter on the whole signal
-        # todo - hh: and run mfcc() on the whole signal. Instead we do subframing first and then doing both on same time
         # print(len(mfccMatrix))
         # print(mfccMatrix)
 
