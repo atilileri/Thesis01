@@ -39,9 +39,6 @@ each coefficient is measured along the example set.
 '''
 templateMatrix = np.mean(allMatrixesOfExampleSet, axis=0)
 varianceMatrix = np.var(allMatrixesOfExampleSet, axis=0)
-# print(templateMatrix.shape)  # (63 subframes, 13 mfcc features)
-# print(varianceMatrix.shape)  # (63 subframes, 13 mfcc features)
-# print(templateMatrix)
 
 ''' Step II-A.6:
 In addition to the template matrix, another feature vector is computed as follows: the matrices of the example set
@@ -53,19 +50,17 @@ in the calculation of the breath similarity measure of test signals (see Section
 '''
 # Concat matrix
 concatanatedMatrix = np.concatenate(allMatrixesOfExampleSet, axis=0)
-# print(concatanatedMatrix.shape)
 # Compute SVD
 singularVectors, singularValues, _ = np.linalg.svd(concatanatedMatrix, full_matrices=True)
 singularVector = singularVectors[np.argmax(np.abs(singularValues))]
-# print(singularVector)
-# Normalizer
-# print(np.linalg.norm(singularVector, ord=np.inf))
-# Normalize by max norm
-singularVector = singularVector / np.linalg.norm(singularVector, ord=np.inf)
-# print(singularVector)
-# print(np.shape(singularVector))
-
-# print(np.shape(allMatrixesOfExampleSet))
+# todo - hh: we have to get array of [13,1] for singularVector here.
+print('allMatrixesOfExampleSet:', np.shape(allMatrixesOfExampleSet))  # (24 files, 63 subframes, 13 mfcc features)
+print('templateMatrix:', templateMatrix.shape)  # (63 subframes, 13 mfcc features)
+print('varianceMatrix:', varianceMatrix.shape)  # (63 subframes, 13 mfcc features)
+print('concatanatedMatrix:', concatanatedMatrix.shape)
+print('singularVector:', np.shape(singularVector))
+# todo - hh: Is this normalization required according to text?
+singularVector = singularVector / max(np.abs(singularVector))
 
 '''
 B. Detection Phase
@@ -77,7 +72,7 @@ center of the frame.
 '''
 # Read input audio signal
 # Note that this file can not be added to github, because it is larger than the size limit(100MB)
-path = '.\whole_speech.wav'
+path = './whole_speech.wav'
 fs, inputSignal = utils.readMonoWav(path)
 
 # print('Input File:', path)
@@ -103,7 +98,7 @@ for i in range(0, len(inputSignal), int(hopSize * fs)):
 
     # todo - ai : createMfccMatrix() should work with centerWindow, not analysisFrame. Throws error now. Investigate!
     # The Cepstrogram (MFCC matrix) is computed over a window located around the center of the frame
-    mfccMatrix = utils.createMfccMatrix(analysisFrame, fs)
+    cepstogramXi = utils.createMfccMatrix(analysisFrame, fs)
     # print(np.shape(mfccMatrix))
     ''' Step II-B.2:
     The short-time energy is computed according to the following:
@@ -113,14 +108,14 @@ for i in range(0, len(inputSignal), int(hopSize * fs)):
     E, dB = 10 * log10(E)
     '''
     # Short Time Energy is computed over a window located around the center of the frame
-    ste, db = utils.calcShortTimeEnergy(centerWindow)
+    steXi, db = utils.calcShortTimeEnergy(centerWindow)
     ''' Step II-B.3:
     The zero-crossing rate (ZCR) is defined as the number of times the audio waveform changes its sign, normalized by
     the window length N in samples (corresponding to 10 ms)
     ZCR = 1/N * Epsilon(goes n=[N0+1, N0+(N-1)])( 0.5 * abs( sign(x[n]) - sign(x[n-1]) ) )
     '''
     # Zero Crossing Rate is computed over a window located around the center of the frame
-    zcr = utils.calcZeroCrossingRate(centerWindow)
+    zcrXi = utils.calcZeroCrossingRate(centerWindow)
     ''' Step II-B.4:
     The spectral slope is computed by taking the discrete Fourier transform of the analysis window, evaluating its
     magnitude at frequencies of pi/2 and pi (corresponding here to 11 and 22 kHz, respectively), and computing the
@@ -134,20 +129,55 @@ for i in range(0, len(inputSignal), int(hopSize * fs)):
     used to differentiate between voiced/silence and unvoiced/breath. As such, the spectral slope is used here as an
     additional parameter for identifying the edges of the breath (see Section III).
     '''
-    slope = utils.calcSpectralSlope(centerWindow, fs)
+    slopeXi = utils.calcSpectralSlope(centerWindow, fs)
 
-'''
-C.Computation of the Breath Similarity Measure
-Once the aforementioned parameters are computed for a given frame Xi, its short-time cepstrogram (MFCC matrix) is
-used for calculating its breath similarity measure. The similarity measure, denoted B(Xi, T, V, S), is computed between 
-the cepstrogram of the frame, M(Xi), the template cepstrogram T (with V being the variance matrix) and the singular 
-vector S . The steps of the computation are as follows (Fig. 6):
-'''
+    '''
+    C.Computation of the Breath Similarity Measure
+    Once the aforementioned parameters are computed for a given frame Xi, its short-time cepstrogram (MFCC matrix) is
+    used for calculating its breath similarity measure. The similarity measure, denoted B(Xi, T, V, S), is computed between 
+    the cepstrogram of the frame, M(Xi), the template cepstrogram T (with V being the variance matrix) and the singular 
+    vector S . The steps of the computation are as follows (Fig. 6):
+    '''
+    ''' Step II-C.1:
+    The normalized difference matrix  D = (M(Xi) - T) / V  is computed. The normalization (element-by-element) by the 
+    variance matrix is performed in order to compensate for the differences in the distributions of the various cepstral
+    coefficients.
+    '''
+    diffXi = np.subtract(cepstogramXi, templateMatrix)
+    normDiffXi = np.divide(diffXi, varianceMatrix)
 
-''' Step II-C.1:
-The normalized difference matrix  D = (M(Xi) - T) / V  is computed. The normalization (element-by-element) by the 
-variance matrix is performed in order to compensate for the differences in the distributions of the various cepstral
-coefficients.
-'''
-# todo = ai : implement the matrix calculation
-# keep going!!
+    # Reminder Here: The cepstrogram is defined as a matrix whose columns are the MFCC vectors for each subframe.
+    ''' Step II-C.2:
+    The difference matrix is liftered by multiplying each column with a half-Hamming window that emphasizes the lower
+    cepstral coefficients. It has been found in preliminary experiments, that this procedure yields better separation
+    between breath sounds and other sounds (see also [2]).
+    '''
+    lifter = np.hamming(26)[13:]  # get half-Hamming window
+    liftNormDiffXi = np.multiply(normDiffXi, lifter)
+
+    ''' Step II-C.3:
+    A first similarity measure(Cp) is computed by taking the inverse of the sum of squares of all elements of the
+    normalized difference matrix, according to the following equation:
+        Cp = 1 / Epsilon(goes i=[1,n], j=[1, Ne])(Dij^2)
+    where n is the number of subframes, and Ne is the number of MFC coefficients computed for each subframe.
+    When the cepstrogram is very similar to the template, the elements of the difference matrix should be small, leading
+    to a high value of this similarity measure. When the frame contains a signal which is very different from breath,
+    the measure is expected to yield small values. This template matching procedure with a scaled Euclidean distance is
+    essentially a special case of a two-class Gaussian classifier [30] with a diagonal covariance matrix. This is due to
+    the computation of the MFCC, which involves a discrete cosine transform as its last step [20], known for its
+    tendency to decorrelate the mel-scale filter log-energies [22].
+    '''
+    squaresXi = np.square(liftNormDiffXi)
+    sumOfSquaresXi = np.sum(squaresXi)
+    cp = 1 / sumOfSquaresXi
+
+    ''' Step II-C.3:
+    A second similarity measure(Cn) is computed by taking the sum of the inner products between the singular vector
+    (see Section II-A) and the normalized columns of the cepstrogram. Since the singular vector is assumed to capture
+    the important characteristics of breath sounds, these inner products (and, therefore, Cn) are expected to be small
+    when the frame contains information from other phonemes.
+    '''
+    normCepsXi = []
+    for col in cepstogramXi:
+        normCepsXi.append(col / max(col))
+    print('Normalized columns of the cepstogram for frame', i, ':', np.shape(normCepsXi))
