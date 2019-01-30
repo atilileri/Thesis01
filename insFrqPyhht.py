@@ -7,20 +7,23 @@ from pyhht.emd import EMD
 from utils import readMonoWav
 import matplotlib.pyplot as plt
 import scipy.signal as sp
-import scipy
+import os
 import numpy as np
 np.set_printoptions(edgeitems=50)
 
-# sampRate, sig = readMonoWav('./METU Recordings/hh2_48kHz_Mono_32bitFloat.wav')
-# sampRate, sig = readMonoWav('./METU Recordings/hh2_breath/hh2_04_00.34.164_270_en.wav')
-sampRate, sig = readMonoWav('./METU Recordings/hh2_breath/hh2_09_01.20.741_134_en2.wav')
-# sampRate, sig = readMonoWav('./METU Recordings/hh2_breath/hh2_09_01.20.741_134_en3_16bit.wav')
-# sampRate, sig = readMonoWav('./METU Recordings/hh2_breath/hh2_23_03.02.050_149_tr.wav')
-# sampRate, sig = readMonoWav('./METU Recordings/hh2_withEdges/hh2_random001_noised.wav')
+# filepath = './METU Recordings/hh2_48kHz_Mono_32bitFloat.wav'
+# filepath = './METU Recordings/hh2_breath/hh2_04_00.34.164_270_en.wav'
+filepath = './METU Recordings/hh2_breath/hh2_09_01.20.741_134_en2.wav'
+# filepath = './METU Recordings/hh2_breath/hh2_09_01.20.741_134_en3_16bit.wav'
+# filepath = './METU Recordings/hh2_breath/hh2_23_03.02.050_149_tr.wav'
+# filepath = './METU Recordings/hh2_withEdges/hh2_random001_noised.wav'
 
-# print(sig)
-print(len(sig))
-print(sampRate)
+sampRate, sig = readMonoWav(filepath)
+filename = str(os.path.basename(filepath).rsplit('.', 1)[0])
+
+print('FileName:', filename)
+print('Length:', len(sig))
+print('SamplingRate:', sampRate)
 print('######')
 
 readWholeFile = True  # set to False for trials only
@@ -158,6 +161,7 @@ for sampleIdx in range(len(sig)-1):
         freq = instfAllNorm[index2d][sampleIdx]
         specs[sampleIdx][int(np.floor(abs(freq) / freqBinDivider))] += magAll[index2d][sampleIdx]
 
+density = np.count_nonzero(specs, axis=1)
 
 print('IMFs:', np.shape(imfsAll))
 print('IMFsNorm:', np.shape(imfsAllNorm))
@@ -165,6 +169,7 @@ print('IMFsEnv:', np.shape(imfsEnv))
 print('InstFs:', np.shape(instfAll))
 print('InstFsNorm:', np.shape(instfAllNorm))
 print('Magnitudes:', np.shape(magAll))
+print('Specs:', np.shape(specs))
 
 # for inf in instfAll:
 #     inf /= max(inf)  # normalization
@@ -175,58 +180,71 @@ print('Magnitudes:', np.shape(magAll))
 
 print('plotting...')
 
-# Make plot with vertical (default) colorbar
-fig, ax = plt.subplots(figsize=(15, 30))
-
-data = np.swapaxes(specs, 0, 1)
-data = np.ma.masked_where(data < 0.001, data)
-
-cmap = plt.cm.magma
-cmap.set_bad(color='white')
-
-cax = ax.imshow(data, interpolation='nearest', cmap=cmap, origin='lower', aspect='auto')
-ax.set_title('Magnitudes of IMFs')
-
-# Add colorbar, make sure to specify tick locations to match desired ticklabels
-cbar = fig.colorbar(cax, ticks=[0, 2, 4])
-cbar.ax.set_yticklabels(['0', '> ', '23'])  # vertically oriented colorbar
-# plt.gca().invert_yaxis()
-plt.savefig('plots/graphMag.png', dpi=200)
-
-plt.show()
-
-
-for i in range(np.shape(imfsAll)[0]):
-    # Plot Original Signal
-    # plt.plot(np.divide(range(len(sig)), sampRate), sig,
-    #          label="Orig", color='gray', linewidth=0.5, zorder=-3)
-    # Plot Instant Frequencies
-    plt.subplot(211)
-    plt.title('IMF #' + str(i+1))
-    plt.plot(np.divide(range(len(instfAll[i])), sampRate), instfAll[i],
-             label="Instf", color='green', linewidth=0.7, zorder=2)
-    plt.plot(np.divide(range(len(instfAllNorm[i])), sampRate), instfAllNorm[i],
-             label="Instf from NormImfs", color='brown', linewidth=0.7, zorder=5)
-    plt.grid(True, linestyle='dashed', color='darkred', linewidth=0.2, zorder=0)
-    plt.xticks(np.arange(0, len(sig) / sampRate, step=0.1), rotation=90)
-    # plt.ylabel('I')
+plotDensity = True
+if plotDensity:
+    plt.title(filepath)
+    plt.plot(np.divide(range(len(density)), sampRate), density,
+             label="Average Density: " + str(np.average(density)), linewidth=0.5)
     plt.legend()
-    # Plot Imfs
-    plt.subplot(212)
-    # plt.title('IMF #' + str(i+1))
-    plt.plot(np.divide(range(len(imfsAll[i])), sampRate), np.divide(imfsAll[i], max(imfsAll[i])),
-             label="Imf(normalized for plotting)", color='orange', linewidth=0.75, zorder=2)
-    plt.plot(np.divide(range(len(imfsAllNorm[i])), sampRate), imfsAllNorm[i],
-             label="ImfNorm", color='blue', linewidth=0.75, zorder=1)
-    # Plot Envelopes of Imfs
-    # plt.plot(np.divide(range(len(imfsEnv[i])), sampRate), imfsEnv[i],
-    #          label="Env")
-    plt.grid(True, linestyle='dashed', color='darkred', linewidth=0.2, zorder=0)
-    plt.xticks(np.arange(0, len(sig) / sampRate, step=0.1), rotation=90)
-    plt.xlabel('Time (Seconds)')
-    # plt.ylabel('Amplitude')
-    plt.legend()
-    plt.savefig("plots/graphImf"+str(i+1)+".svg")
-    plt.savefig("plots/graphImf"+str(i+1)+".png")
+    plt.savefig("plots/density_" + filename + ".svg")
+    plt.savefig("plots/density_" + filename + ".png")
     plt.show()
+
+plotSpec = False
+if plotSpec:
+    # Make plot with vertical (default) colorbar
+    fig, ax = plt.subplots(figsize=(15, 30))
+
+    data = np.swapaxes(specs, 0, 1)
+    data = np.ma.masked_where(data < 0.001, data)
+
+    cmap = plt.cm.magma
+    cmap.set_bad(color='white')
+
+    cax = ax.imshow(data, interpolation='nearest', cmap=cmap, origin='lower', aspect='auto')
+    ax.set_title('Magnitudes of IMFs')
+
+    # Add colorbar, make sure to specify tick locations to match desired ticklabels
+    cbar = fig.colorbar(cax, ticks=[0, 2, 4000])
+    cbar.ax.set_yticklabels(['0', '> ', '23'])  # vertically oriented colorbar
+    # plt.gca().invert_yaxis()
+    plt.savefig('plots/graphMag.png', dpi=200)
+
+    plt.show()
+
+plotImfs = False
+if plotImfs:
+    for i in range(np.shape(imfsAll)[0]):
+        # Plot Original Signal
+        # plt.plot(np.divide(range(len(sig)), sampRate), sig,
+        #          label="Orig", color='gray', linewidth=0.5, zorder=-3)
+        # Plot Instant Frequencies
+        plt.subplot(211)
+        plt.title('IMF #' + str(i+1))
+        plt.plot(np.divide(range(len(instfAll[i])), sampRate), instfAll[i],
+                 label="Instf", color='green', linewidth=0.7, zorder=2)
+        plt.plot(np.divide(range(len(instfAllNorm[i])), sampRate), instfAllNorm[i],
+                 label="Instf from NormImfs", color='brown', linewidth=0.7, zorder=5)
+        plt.grid(True, linestyle='dashed', color='darkred', linewidth=0.2, zorder=0)
+        plt.xticks(np.arange(0, len(sig) / sampRate, step=0.1), rotation=90)
+        # plt.ylabel('I')
+        plt.legend()
+        # Plot Imfs
+        plt.subplot(212)
+        # plt.title('IMF #' + str(i+1))
+        plt.plot(np.divide(range(len(imfsAll[i])), sampRate), np.divide(imfsAll[i], max(imfsAll[i])),
+                 label="Imf(normalized for plotting)", color='orange', linewidth=0.75, zorder=2)
+        plt.plot(np.divide(range(len(imfsAllNorm[i])), sampRate), imfsAllNorm[i],
+                 label="ImfNorm", color='blue', linewidth=0.75, zorder=1)
+        # Plot Envelopes of Imfs
+        # plt.plot(np.divide(range(len(imfsEnv[i])), sampRate), imfsEnv[i],
+        #          label="Env")
+        plt.grid(True, linestyle='dashed', color='darkred', linewidth=0.2, zorder=0)
+        plt.xticks(np.arange(0, len(sig) / sampRate, step=0.1), rotation=90)
+        plt.xlabel('Time (Seconds)')
+        # plt.ylabel('Amplitude')
+        plt.legend()
+        plt.savefig("plots/graphImf"+str(i+1)+".svg")
+        plt.savefig("plots/graphImf"+str(i+1)+".png")
+        plt.show()
 

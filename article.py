@@ -51,16 +51,16 @@ in the calculation of the breath similarity measure of test signals (see Section
 # Concat matrix
 concatanatedMatrix = np.concatenate(allMatrixesOfExampleSet, axis=0)
 # Compute SVD
-singularVectors, singularValues, _ = np.linalg.svd(concatanatedMatrix, full_matrices=True)
-singularVector = singularVectors[np.argmax(np.abs(singularValues))]
-# todo - hh: we have to get array of [13,1] for singularVector here.
-print('allMatrixesOfExampleSet:', np.shape(allMatrixesOfExampleSet))  # (24 files, 63 subframes, 13 mfcc features)
-print('templateMatrix:', templateMatrix.shape)  # (63 subframes, 13 mfcc features)
-print('varianceMatrix:', varianceMatrix.shape)  # (63 subframes, 13 mfcc features)
-print('concatanatedMatrix:', concatanatedMatrix.shape)
-print('singularVector:', np.shape(singularVector))
-# todo - hh: Is this normalization required according to text?
-singularVector = singularVector / max(np.abs(singularVector))
+singularVectors, singularValues, _ = np.linalg.svd(concatanatedMatrix.transpose(), full_matrices=True)
+mainSingularVector = singularVectors[np.argmax(np.abs(singularValues))]
+# print('allMatrixesOfExampleSet:', np.shape(allMatrixesOfExampleSet))  # (24 files, 63 subframes, 13 mfcc features)
+# print('templateMatrix:', templateMatrix.shape)  # (63 subframes, 13 mfcc features)
+# print('varianceMatrix:', varianceMatrix.shape)  # (63 subframes, 13 mfcc features)
+# print('concatanatedMatrix:', concatanatedMatrix.shape)
+# print('singularVector:', np.shape(mainSingularVector))
+
+# get normalized Singular Vector for calculations of Cn
+normSingVect = mainSingularVector / max(np.abs(mainSingularVector))
 
 '''
 B. Detection Phase
@@ -171,13 +171,18 @@ for i in range(0, len(inputSignal), int(hopSize * fs)):
     sumOfSquaresXi = np.sum(squaresXi)
     cp = 1 / sumOfSquaresXi
 
-    ''' Step II-C.3:
+    ''' Step II-C.4:
     A second similarity measure(Cn) is computed by taking the sum of the inner products between the singular vector
     (see Section II-A) and the normalized columns of the cepstrogram. Since the singular vector is assumed to capture
     the important characteristics of breath sounds, these inner products (and, therefore, Cn) are expected to be small
     when the frame contains information from other phonemes.
     '''
-    normCepsXi = []
+    innerProducts = []
     for col in cepstogramXi:
-        normCepsXi.append(col / max(col))
-    print('Normalized columns of the cepstogram for frame', i, ':', np.shape(normCepsXi))
+        normCol = col / np.max(np.abs(col))
+        innerProduct = np.inner(normCol, normSingVect)
+        innerProducts.append(innerProduct)
+
+    cn = np.sum(innerProducts)
+
+    print('Similarity Measure for frame', i, ':', cp * cn)
