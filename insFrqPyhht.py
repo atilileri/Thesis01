@@ -11,20 +11,56 @@ import os
 import numpy as np
 np.set_printoptions(edgeitems=50)
 
+saveFolder = ''
 # filepath = './METU Recordings/hh2_48kHz_Mono_32bitFloat.wav'
 # filepath = './METU Recordings/hh2_breath/hh2_04_00.34.164_270_en.wav'
-filepath = './METU Recordings/hh2_breath/hh2_09_01.20.741_134_en2.wav'
+# filepath = './METU Recordings/hh2_breath/hh2_09_01.20.741_134_en2.wav'
 # filepath = './METU Recordings/hh2_breath/hh2_09_01.20.741_134_en3_16bit.wav'
 # filepath = './METU Recordings/hh2_breath/hh2_23_03.02.050_149_tr.wav'
 # filepath = './METU Recordings/hh2_withEdges/hh2_random001_noised.wav'
 
+# saveFolder += 'density/bg/'
+# filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_00.55.000-571.wav'
+# filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_01.12.437-204.wav'
+# filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_01.22.210-876.wav'
+# filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_01.31.170-404.wav'
+# filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_01.37.775-506.wav'
+# filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_01.45.197-192.wav'
+# filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_01.59.505-447.wav'
+# filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_02.11.400-373.wav'
+# filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_02.32.472-282.wav'
+# filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_02.36.313-440.wav'
+# filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_02.37.779-554.wav'
+# filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_02.39.465-329.wav'
+
+saveFolder += 'density/breath/'
+# filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_00.32.850-525.wav'
+# filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_00.40.871-424.wav'
+# filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_00.43.460-591.wav'
+# filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_00.52.458-437.wav'
+# filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_00.59.523-922.wav'
+# filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_01.05.275-933.wav'
+# filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_01.13.717-623.wav'
+# filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_01.24.215-555.wav'
+# filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_01.27.825-780.wav'
+# filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_01.50.001-491.wav'
+# filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_01.57.027-852.wav'
+# filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_02.26.115-493.wav'
+filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_02.39.838-462.wav'
+
 sampRate, sig = readMonoWav(filepath)
 filename = str(os.path.basename(filepath).rsplit('.', 1)[0])
 
+# todo - remove when mid signal tests completed
+mid = len(sig)//2
+centerFrameLenBySamples = min(int(sampRate * 0.2), mid)  # center frame is 200 ms
+sig = sig[mid-(centerFrameLenBySamples//2):mid+(centerFrameLenBySamples//2)]
+
 print('FileName:', filename)
-print('Length:', len(sig))
+print('Length:', len(sig), 'samples')
 print('SamplingRate:', sampRate)
 print('######')
+
 
 readWholeFile = True  # set to False for trials only
 
@@ -154,14 +190,16 @@ for eachImf in imfsAllNorm:
     instfAllNorm.append(tempInstf2)
 
 freqBinDivider = 10
-specs = np.zeros(shape=(len(sig), int(np.ceil(sampRate / (freqBinDivider * 2)))))
+freqBinCount = int(np.ceil(sampRate / (freqBinDivider * 2)))
+specs = np.zeros(shape=(len(sig), freqBinCount))
 
 for sampleIdx in range(len(sig)-1):
     for index2d in range(len(instfAllNorm)):
         freq = instfAllNorm[index2d][sampleIdx]
         specs[sampleIdx][int(np.floor(abs(freq) / freqBinDivider))] += magAll[index2d][sampleIdx]
 
-density = np.count_nonzero(specs, axis=1)
+densityAnalysisArea = specs[:, freqBinCount//4:-freqBinCount//4]
+density = np.count_nonzero(densityAnalysisArea, axis=1)
 
 print('IMFs:', np.shape(imfsAll))
 print('IMFsNorm:', np.shape(imfsAllNorm))
@@ -170,6 +208,7 @@ print('InstFs:', np.shape(instfAll))
 print('InstFsNorm:', np.shape(instfAllNorm))
 print('Magnitudes:', np.shape(magAll))
 print('Specs:', np.shape(specs))
+print('densityAnalysisArea:', np.shape(densityAnalysisArea))
 
 # for inf in instfAll:
 #     inf /= max(inf)  # normalization
@@ -182,12 +221,13 @@ print('plotting...')
 
 plotDensity = True
 if plotDensity:
+    print(np.average(density))
     plt.title(filepath)
     plt.plot(np.divide(range(len(density)), sampRate), density,
              label="Average Density: " + str(np.average(density)), linewidth=0.5)
     plt.legend()
-    plt.savefig("plots/density_" + filename + ".svg")
-    plt.savefig("plots/density_" + filename + ".png")
+    plt.savefig("plots/" + saveFolder + "density_" + filename + ".svg")
+    plt.savefig("plots/" + saveFolder + "density_" + filename + ".png")
     plt.show()
 
 plotSpec = False
