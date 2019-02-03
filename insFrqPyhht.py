@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import scipy.signal as sp
 import os
 import numpy as np
+import pyperclip as cl
 np.set_printoptions(edgeitems=50)
 
 saveFolder = ''
@@ -19,8 +20,8 @@ saveFolder = ''
 # filepath = './METU Recordings/hh2_breath/hh2_23_03.02.050_149_tr.wav'
 # filepath = './METU Recordings/hh2_withEdges/hh2_random001_noised.wav'
 
-# saveFolder += 'density/bg/'
-# filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_00.55.000-571.wav'
+saveFolder += 'density/bg/'
+filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_00.55.000-571.wav'
 # filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_01.12.437-204.wav'
 # filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_01.22.210-876.wav'
 # filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_01.31.170-404.wav'
@@ -33,7 +34,7 @@ saveFolder = ''
 # filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_02.37.779-554.wav'
 # filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_02.39.465-329.wav'
 
-saveFolder += 'density/breath/'
+# saveFolder += 'density/breath/'
 # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_00.32.850-525.wav'
 # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_00.40.871-424.wav'
 # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_00.43.460-591.wav'
@@ -46,14 +47,30 @@ saveFolder += 'density/breath/'
 # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_01.50.001-491.wav'
 # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_01.57.027-852.wav'
 # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_02.26.115-493.wav'
-filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_02.39.838-462.wav'
+# filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_02.39.838-462.wav'
+
+# saveFolder += 'density/non-voiced/'
+# filepath = './TED Recordings/BillGates_2009/non-voiced/BillGates_2009_00.21.576-326.wav'
+# filepath = './TED Recordings/BillGates_2009/non-voiced/BillGates_2009_00.24.897-274.wav'
+# filepath = './TED Recordings/BillGates_2009/non-voiced/BillGates_2009_00.31.490-324.wav'
+# filepath = './TED Recordings/BillGates_2009/non-voiced/BillGates_2009_00.42.814-516.wav'
+# filepath = './TED Recordings/BillGates_2009/non-voiced/BillGates_2009_01.18.383-252.wav'
+# filepath = './TED Recordings/BillGates_2009/non-voiced/BillGates_2009_01.32.227-273.wav'
+# filepath = './TED Recordings/BillGates_2009/non-voiced/BillGates_2009_01.35.925-301.wav'
+# filepath = './TED Recordings/BillGates_2009/non-voiced/BillGates_2009_02.59.372-200.wav'
+# filepath = './TED Recordings/BillGates_2009/non-voiced/BillGates_2009_03.18.690-234.wav'
+# filepath = './TED Recordings/BillGates_2009/non-voiced/BillGates_2009_03.35.168-364.wav'
+# filepath = './TED Recordings/BillGates_2009/non-voiced/BillGates_2009_03.47.911-201.wav'
+# filepath = './TED Recordings/BillGates_2009/non-voiced/BillGates_2009_04.25.179-287.wav'
+# filepath = './TED Recordings/BillGates_2009/non-voiced/BillGates_2009_04.35.304-254.wav'
+# filepath = './TED Recordings/BillGates_2009/non-voiced/BillGates_2009_05.04.223-208.wav'
 
 sampRate, sig = readMonoWav(filepath)
 filename = str(os.path.basename(filepath).rsplit('.', 1)[0])
 
 # todo - remove when mid signal tests completed
 mid = len(sig)//2
-centerFrameLenBySamples = min(int(sampRate * 0.2), mid)  # center frame is 200 ms
+centerFrameLenBySamples = min(int(sampRate * 0.2), len(sig))  # center frame is 200 ms
 sig = sig[mid-(centerFrameLenBySamples//2):mid+(centerFrameLenBySamples//2)]
 
 print('FileName:', filename)
@@ -70,17 +87,13 @@ if readWholeFile is False:
 
 # sig = sig / max(sig)  # normalization
 
-# todo - ai : 2d representation ile dene
-# w = scipy.signal.tukey(len(sig))
-# sig = sig * w
-
 imfsAll = []
 magAll = []
 imfsAllNorm = []
 imfsEnv = []
 instfAll = []
-partLen = sampRate // 1  # divide into 100 ms parts - shorter durations lead to less imfs
-print('Each part is', partLen, 'samples and', sampRate/partLen, 'second(s)')
+partLen = min(sampRate // 1, len(sig))  # divide into 100 ms parts - shorter durations lead to less imfs
+print('Each part is', partLen, 'samples and', partLen/sampRate, 'second(s)')
 partCount = int(np.ceil(len(sig) / partLen))
 print('Input signal is divided into', partCount, 'part(s)')
 
@@ -199,7 +212,14 @@ for sampleIdx in range(len(sig)-1):
         specs[sampleIdx][int(np.floor(abs(freq) / freqBinDivider))] += magAll[index2d][sampleIdx]
 
 densityAnalysisArea = specs[:, freqBinCount//4:-freqBinCount//4]
+weightedDensityAnalysisArea = np.multiply(densityAnalysisArea.astype(bool).astype(int),
+                                          np.linspace(1, 10, np.shape(densityAnalysisArea)[1]))
+
 density = np.count_nonzero(densityAnalysisArea, axis=1)
+avgDensity = np.average(density)
+
+weiDensity = np.sum(weightedDensityAnalysisArea, axis=1)
+avgWeiDensity = np.average(weiDensity)
 
 print('IMFs:', np.shape(imfsAll))
 print('IMFsNorm:', np.shape(imfsAllNorm))
@@ -221,10 +241,13 @@ print('plotting...')
 
 plotDensity = True
 if plotDensity:
-    print(np.average(density))
+    print('Avg Density:', avgDensity)
+    print('Weighted Avg Density:', avgWeiDensity)
+    cl.copy(str(avgDensity) + '\t' + str(avgWeiDensity))  # copy values to clipboard to paste excel :)
+
     plt.title(filepath)
     plt.plot(np.divide(range(len(density)), sampRate), density,
-             label="Average Density: " + str(np.average(density)), linewidth=0.5)
+             label="Average Density: " + str(avgDensity), linewidth=0.5)
     plt.legend()
     plt.savefig("plots/" + saveFolder + "density_" + filename + ".svg")
     plt.savefig("plots/" + saveFolder + "density_" + filename + ".png")
@@ -242,13 +265,13 @@ if plotSpec:
     cmap.set_bad(color='white')
 
     cax = ax.imshow(data, interpolation='nearest', cmap=cmap, origin='lower', aspect='auto')
-    ax.set_title('Magnitudes of IMFs')
+    ax.set_title(filename + ' Magnitudes of IMFs')
 
     # Add colorbar, make sure to specify tick locations to match desired ticklabels
     cbar = fig.colorbar(cax, ticks=[0, 2, 4000])
     cbar.ax.set_yticklabels(['0', '> ', '23'])  # vertically oriented colorbar
     # plt.gca().invert_yaxis()
-    plt.savefig('plots/graphMag.png', dpi=200)
+    plt.savefig('plots/graphMag' + filename + '.png', dpi=200)
 
     plt.show()
 
