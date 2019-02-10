@@ -72,7 +72,12 @@ energy, zero-crossing rate, and spectral slope (see below). Each of these is com
 center of the frame.
 '''
 
-# Go over example set again and find params for Breath Similarity Measurements in "Step II-C.Detection"
+# Go over example set again and find threshold for Breath Similarity Measurements in "Step II-C.Detection"
+'''
+This threshold is initially set in the learning phase, during the template construction, when the breath similarity
+measure B(Xi, T, V , S) is computed for each of the examples. The minimum value of the similarity measures between each
+of the examples and the template is determined, denoted by Bm. The threshold is set to Bm / 2.
+'''
 bsmArray = []
 for cepsEach in allMatrixesOfExampleSet:
     bsmEach = utils.calcBSM(cepsEach, templateMatrix, varianceMatrix, normSingVect)
@@ -90,14 +95,14 @@ fs, inputSignal = utils.readMonoWav(path)
 
 # todo - ai: change hop size to 0.010, now its 10 seconds for debugging purposes
 hopSize = 10  # hop size is 10 ms for detection phase
+initialClassifications = []
 for i in range(0, len(inputSignal), int(hopSize * fs)):
     # MyNote 1 - ai : Since there is no explicit information on the length of each consecutive analysis frame in
     #  detection phase, a minimum value is taken as analysis frame size. Which is the length of the frame
     #  (frameLengthInSecs) derived from each breath example in the training phase.
     # todo - hh : ask if frameLengthInSecs | there is a general frame length in the literature?
-    # Index to stop: At the end of the analysis frame, index must stop before the file ends.
-    # This assignment adjusts the last step size according to info above.
-    stopIdx = min(i + int(frameLengthInSecs * fs), len(inputSignal) - 1)
+    stopIdx = i + int(frameLengthInSecs * fs)
+    print('\rCalculating parameters for frame', i, '-', stopIdx, 'of', len(inputSignal), '...', end=' ')
     analysisFrame = inputSignal[i:stopIdx]
 
     ''' Section II-B.1:
@@ -176,10 +181,25 @@ for i in range(0, len(inputSignal), int(hopSize * fs)):
     3) The zero-crossing rate is below a given threshold. Experimental data have shown that ZCR above 0.25 (assuming
     a sampling rate of 44 kHz) is exhibited only by a number of unvoiced fricatives, and breath sounds have much lower
     ZCR (see Section III-A). This parameter is referred as "zcrThreshold".
+    Following the initial detection, a binary breathiness index is assigned to each frame: breathy frames are assigned
+    index 1, whereas nonbreathy frames are assigned index 0.
     '''
     zcrThreshold = 0.25
+    # todo - hh : ask what can we assign to energy threshold, according to fig. 7
     engThreshold = 999999  # todo - ai : calculate this. Pseudo for now
     if bsmXi > bsmThreshold and zcrXi < zcrThreshold and steXi < engThreshold:
-        print(i, '-', stopIdx, ': BREATH')
+        # print(i, '-', stopIdx, ': BREATH')
+        initialClassifications.append([analysisFrame, [i, stopIdx, 1]])
     else:
-        print(i, '-', stopIdx, ': no')
+        # print(i, '-', stopIdx, ': no')
+        initialClassifications.append([analysisFrame, [i, stopIdx, 0]])
+
+print('\nInitial Classifications are Done.')
+
+# print initial classifications
+for frame in initialClassifications:
+    print(frame[1][0], '-', frame[1][1], ':', end=' ')
+    if frame[1][2] == 1:
+        print('BREATH')
+    elif frame[1][2] == 0:
+        print('no')

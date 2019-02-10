@@ -233,6 +233,7 @@ def calcBSM(cepstogram, templateMatrix, varianceMatrix, normSingVect):
     the important characteristics of breath sounds, these inner products (and, therefore, Cn) are expected to be small
     when the frame contains information from other phonemes.
     '''
+    # todo - hh : there are negative values in both cn and singVect. How to implement?
     innerProducts = []
     for col in cepstogram:
         normCol = col / np.max(np.abs(col))
@@ -246,9 +247,9 @@ def calcBSM(cepstogram, templateMatrix, varianceMatrix, normSingVect):
     that this combination of similarity measures yields better separation between breath and nonbreath than using
     just the difference matrix or the singular vector.
     '''
-    # todo - hh : there are negative values. But in Section TBD, there is a threshold value to pass for detection. How
-    #  negative values can pass this threshold. There is a 'reciprocal of breath similarity function' statement in
-    #  figure 5
+    # todo - hh : there are negative values in Cn. But in initial classification section, there is a threshold value
+    #  to pass for detection. How negative values can pass this threshold. There is a 'reciprocal of breath similarity
+    #  function' statement in figure 5
     bsm = cp * cn
-    # print('Similarity Measure for frame', i, ':', bsm)
+    # print('Similarity Measure for frame:', bsm, '=', cp, '*', cn)
     return bsm
