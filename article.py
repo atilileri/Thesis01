@@ -60,7 +60,7 @@ mainSingularVector = singularVectors[np.argmax(np.abs(singularValues))]
 # print('singularVector:', np.shape(mainSingularVector))
 
 # get normalized Singular Vector for calculations of Cn
-normSingVect = mainSingularVector / max(np.abs(mainSingularVector))
+normSingVect = mainSingularVector / np.sqrt(np.sum(np.square(mainSingularVector)))
 
 print('Template & Variance Matrix, Singular Vector are Constructed')
 
@@ -128,7 +128,7 @@ for i in range(0, len(inputSignal), int(hopSize * fs)):
     # Short Time Energy is computed over a window located around the center of the frame
     windowLengthInSamples = int(0.010 * fs)  # window size is 10 ms for STE calculations
     centerWindow = utils.getCenterWindow(analysisFrame, windowLengthInSamples)
-    steXi, db = utils.calcShortTimeEnergy(centerWindow)
+    steXi, steInDbXi = utils.calcShortTimeEnergy(centerWindow)
     ''' Section II-B.3:
     The zero-crossing rate (ZCR) is defined as the number of times the audio waveform changes its sign, normalized
     by the window length N in samples (corresponding to 10 ms)

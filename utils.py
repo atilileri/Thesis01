@@ -236,7 +236,8 @@ def calcBSM(cepstogram, templateMatrix, varianceMatrix, normSingVect):
     # todo - hh : there are negative values in both cn and singVect. How to implement?
     innerProducts = []
     for col in cepstogram:
-        normCol = col / np.max(np.abs(col))
+        # column normalization
+        normCol = col / np.sqrt(np.sum(np.square(col)))
         innerProduct = np.inner(normCol, normSingVect)
         innerProducts.append(innerProduct)
 
