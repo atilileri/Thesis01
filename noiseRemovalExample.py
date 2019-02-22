@@ -6,7 +6,8 @@ import time
 import utils
 from datetime import timedelta as td
 import sounddevice as sd
-
+import scipy.io.wavfile
+import os
 
 def _stft(y, n_fft, hop_length, win_length):
     return librosa.stft(y=y, n_fft=n_fft, hop_length=hop_length, win_length=win_length)
@@ -143,12 +144,29 @@ def removeNoise(audio_clip, noise_clip, n_grad_freq=2, n_grad_time=4, n_fft=2048
 filepath = './METU Recordings/hh2_bg/hh2_00.09.569-2266_bg.wav'
 _, bgData = utils.readMonoWav(filepath)
 filepath = './METU Recordings/hh2_speechAndBreath/hh2_00.17.614-1629_spAndBr.wav'
+filename = str(os.path.basename(filepath).rsplit('.', 1)[0])
 sampRate, speechData = utils.readMonoWav(filepath)
 
 sd.play(speechData, sampRate)
 time.sleep(len(speechData)/sampRate)
 sd.stop()
+
 output = removeNoise(audio_clip=speechData, noise_clip=bgData, verbose=False, visual=False)
+# output = removeNoise(audio_clip=output, noise_clip=bgData, verbose=False, visual=False)
+
 sd.play(output, sampRate)
 time.sleep(len(output)/sampRate)
 sd.stop()
+scipy.io.wavfile.write('outputs/before.wav', sampRate, speechData)
+scipy.io.wavfile.write('outputs/after.wav', sampRate, output)
+
+plt.figure(figsize=(10, 10))
+plt.subplot(211)
+plt.title('Before: ' + filename)
+plt.plot(speechData)
+plt.subplot(212)
+plt.title('After')
+plt.plot(output)
+plt.savefig('plots/noiseRemoval_' + filename + '.svg')
+plt.show()
+
