@@ -235,49 +235,49 @@ if __name__ == '__main__':
         # Instant Frequencies for all IMFs combined
         for i in range(len(instfs)):
             plt.title(filename + ' Frequencies of Instfs')
+            plt.plot(np.divide(range(len(instfs[i])), sampRate), instfs[i], linewidth=0.5)
             plt.savefig("plots/graphAllInstf_" + filename + ".svg")
             plt.savefig("plots/graphAllInstf_" + filename + ".png")
-            plt.plot(np.divide(range(len(instfs[i])), sampRate), instfs[i], linewidth=0.5)
         plt.show()
 
         # Instant Frequencies for each IMF
         for i in range(len(instfs)):
             plt.title(filename + ' Frequencies of IMF#' + str(i+1))
+            plt.plot(np.divide(range(len(instfs[i])), sampRate), instfs[i], linewidth=0.5)
             plt.savefig("plots/graphInstf_" + str(i+1) + "_" + filename + ".svg")
             plt.savefig("plots/graphInstf_" + str(i+1) + "_" + filename + ".png")
-            plt.plot(np.divide(range(len(instfs[i])), sampRate), instfs[i], linewidth=0.5)
             plt.show()
 
         # Normalized Instant Frequencies for all IMFs combined
         for i in range(len(instfsNorm)):
             plt.title(filename + ' Frequencies of Normalized Instfs')
+            plt.plot(np.divide(range(len(instfs[i])), sampRate), instfs[i], linewidth=0.5)
             plt.savefig("plots/graphAllInstfNorm_" + filename + ".svg")
             plt.savefig("plots/graphAllInstfNorm_" + filename + ".png")
-            plt.plot(np.divide(range(len(instfs[i])), sampRate), instfs[i], linewidth=0.5)
         plt.show()
 
         # Normalized Instant Frequencies for each IMF
         for i in range(len(instfsNorm)):
             plt.title(filename + ' Frequencies of Normalized IMF#' + str(i+1))
+            plt.plot(np.divide(range(len(instfsNorm[i])), sampRate), instfsNorm[i], linewidth=0.5)
             plt.savefig("plots/graphInstfNorm_" + str(i+1) + "_" + filename + ".svg")
             plt.savefig("plots/graphInstfNorm_" + str(i+1) + "_" + filename + ".png")
-            plt.plot(np.divide(range(len(instfsNorm[i])), sampRate), instfsNorm[i], linewidth=0.5)
             plt.show()
 
         # Normalized and Absoluted Instant Frequencies for all IMFs combined
         for i in range(len(instfsNorm)):
             plt.title(filename + ' Frequencies of Norm + Abs Instfs')
+            plt.plot(np.divide(range(len(instfs[i])), sampRate), abs(instfs[i]), linewidth=0.5)
             plt.savefig("plots/graphAllInstfNormAbs_" + filename + ".svg")
             plt.savefig("plots/graphAllInstfNormAbs_" + filename + ".png")
-            plt.plot(np.divide(range(len(instfs[i])), sampRate), abs(instfs[i]), linewidth=0.5)
         plt.show()
 
         # Normalized and Absoluted Instant Frequencies for each IMF
         for i in range(len(instfsNorm)):
             plt.title(filename + ' Frequencies of Norm + Abs IMF#' + str(i+1))
+            plt.plot(np.divide(range(len(instfsNorm[i])), sampRate), abs(instfsNorm[i]), linewidth=0.5)
             plt.savefig("plots/graphInstfNormAbs_" + str(i+1) + "_" + filename + ".svg")
             plt.savefig("plots/graphInstfNormAbs_" + str(i+1) + "_" + filename + ".png")
-            plt.plot(np.divide(range(len(instfsNorm[i])), sampRate), abs(instfsNorm[i]), linewidth=0.5)
             plt.show()
 
     if plotImfs:
