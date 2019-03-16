@@ -72,7 +72,9 @@ if __name__ == '__main__':
     useCenterFrame = False  # Whether to use a centered portion of the signal (requires centerFrameLenBySamples)
     useImfNormalization = True  # Whether to use normalized data on Instant Freq Spectogram
     plotSpec = True
+    plotInstf = False
     plotImfs = False
+    plotDensity = False
 
 
     class EMDSelection(Enum):  # Different EMD algorithms
@@ -139,13 +141,6 @@ if __name__ == '__main__':
         mag = np.abs(hx)  # magnitudes are obtained before normalization
         phx = np.unwrap(np.arctan2(hx.imag, hx.real))
         diff = np.diff(phx)
-
-        # todo - ai : makeup
-        # phOff = 0
-        # for d in range(len(diff)):
-        #     if diff[d] < 0:
-        #         phOff += (2 * np.pi)
-        #         diff[d] += np.pi
         instf = (sampRate / (2 * np.pi)) * diff
 
         instfs.append(instf)
@@ -181,15 +176,6 @@ if __name__ == '__main__':
         hx2 = sp.hilbert(eachImf)
         phx2 = np.unwrap(np.arctan2(hx2.imag, hx2.real))
         diff2 = np.diff(phx2)
-
-        # todo - ai : makeup
-        # phOff = 0
-        # for d in range(len(diff2)):
-        #     if diff2[d] < 0:
-        #         phOff += (2 * np.pi)
-        #         diff2[d] += np.pi
-        # instf = (sampRate / (2 * np.pi)) * diff2
-
         tempInstf2 = (sampRate / (2 * np.pi)) * diff2
         instfsNorm.append(tempInstf2)
     print('Instant Frequencies calculated on normalized IMFs.')
@@ -204,22 +190,10 @@ if __name__ == '__main__':
     else:
         instfArr = instfs
     # Prepare spectogram data
-    # spec1d = []
-    # spec1dAll = [None] * len(instfArr)
     for frameIdx in range(len(sig) - 1):
-        # spec1d.clear()
         for freqIdx in range(len(instfArr)):
-            # if spec1dAll[freqIdx] is None:
-            #     spec1dAll[freqIdx] = []
             freq = instfArr[freqIdx][frameIdx]
             specs[frameIdx][int(np.floor(abs(freq) / freqBinDivider))] += mags[freqIdx][frameIdx]
-            # spec1dAll[freqIdx].append(int(np.floor(abs(freq) / freqBinDivider)))
-
-        # todo - ai : makeup
-        # spec1dAll.append(spec1d)
-        # print('Frame ', frameIdx,
-        #       'Freq :', int(np.floor(abs(freq) / freqBinDivider)),
-        #       'Mag: ', mags[5][frameIdx])
     print('Spectogram prepared.')
 
     # Specialize density analysis area
@@ -252,29 +226,59 @@ if __name__ == '__main__':
         cax = ax.imshow(data, interpolation='nearest', cmap=cmap, origin='lower')
         ax.set_title(filename + ' Magnitudes of IMFs')
 
-        # Add colorbar, make sure to specify tick locations to match desired ticklabels
+        # Add colorbar
         cbar = fig.colorbar(cax)
-        # plt.gca().invert_yaxis()
-        plt.savefig('plots/graphMag' + filename + '.png')
+        plt.savefig('plots/graphMag_' + filename + '.png')
         plt.show()
 
-        # for spc in spec1dAll:
-        #     plt.plot(spc)
-        # plt.show()
-
-        for ifq in instfs:
-            plt.title(filename + ' Frequencies of IMFs')
+    if plotInstf:
+        # Instant Frequencies for all IMFs combined
+        for i in range(len(instfs)):
+            plt.title(filename + ' Frequencies of Instfs')
             plt.savefig("plots/graphAllInstf_" + filename + ".svg")
             plt.savefig("plots/graphAllInstf_" + filename + ".png")
-            plt.plot(ifq)
+            plt.plot(np.divide(range(len(instfs[i])), sampRate), instfs[i], linewidth=0.5)
         plt.show()
 
-        for ifq in instfsNorm:
-            plt.title(filename + ' Frequencies of Normalized IMFs')
+        # Instant Frequencies for each IMF
+        for i in range(len(instfs)):
+            plt.title(filename + ' Frequencies of IMF#' + str(i+1))
+            plt.savefig("plots/graphInstf_" + str(i+1) + "_" + filename + ".svg")
+            plt.savefig("plots/graphInstf_" + str(i+1) + "_" + filename + ".png")
+            plt.plot(np.divide(range(len(instfs[i])), sampRate), instfs[i], linewidth=0.5)
+            plt.show()
+
+        # Normalized Instant Frequencies for all IMFs combined
+        for i in range(len(instfsNorm)):
+            plt.title(filename + ' Frequencies of Normalized Instfs')
             plt.savefig("plots/graphAllInstfNorm_" + filename + ".svg")
             plt.savefig("plots/graphAllInstfNorm_" + filename + ".png")
-            plt.plot(ifq)
+            plt.plot(np.divide(range(len(instfs[i])), sampRate), instfs[i], linewidth=0.5)
         plt.show()
+
+        # Normalized Instant Frequencies for each IMF
+        for i in range(len(instfsNorm)):
+            plt.title(filename + ' Frequencies of Normalized IMF#' + str(i+1))
+            plt.savefig("plots/graphInstfNorm_" + str(i+1) + "_" + filename + ".svg")
+            plt.savefig("plots/graphInstfNorm_" + str(i+1) + "_" + filename + ".png")
+            plt.plot(np.divide(range(len(instfsNorm[i])), sampRate), instfsNorm[i], linewidth=0.5)
+            plt.show()
+
+        # Normalized and Absoluted Instant Frequencies for all IMFs combined
+        for i in range(len(instfsNorm)):
+            plt.title(filename + ' Frequencies of Norm + Abs Instfs')
+            plt.savefig("plots/graphAllInstfNormAbs_" + filename + ".svg")
+            plt.savefig("plots/graphAllInstfNormAbs_" + filename + ".png")
+            plt.plot(np.divide(range(len(instfs[i])), sampRate), abs(instfs[i]), linewidth=0.5)
+        plt.show()
+
+        # Normalized and Absoluted Instant Frequencies for each IMF
+        for i in range(len(instfsNorm)):
+            plt.title(filename + ' Frequencies of Norm + Abs IMF#' + str(i+1))
+            plt.savefig("plots/graphInstfNormAbs_" + str(i+1) + "_" + filename + ".svg")
+            plt.savefig("plots/graphInstfNormAbs_" + str(i+1) + "_" + filename + ".png")
+            plt.plot(np.divide(range(len(instfsNorm[i])), sampRate), abs(instfsNorm[i]), linewidth=0.5)
+            plt.show()
 
     if plotImfs:
         for i in range(np.shape(imfs)[0]):
@@ -311,23 +315,11 @@ if __name__ == '__main__':
             plt.savefig("plots/graphImf"+str(i+1)+".png")
             plt.show()
 
-# todo - ai : makeup
-    '''
-    print('IMFs:', np.shape(imfsAll))
-    print('IMFsNorm:', np.shape(imfsAllNorm))
-    print('IMFsEnv:', np.shape(imfsEnv))
-    print('InstFs:', np.shape(instfAll))
-    print('InstFsNorm:', np.shape(instfAllNorm))
-    print('Magnitudes:', np.shape(magAll))
-    print('Specs:', np.shape(specs))
-    print('densityAnalysisArea:', np.shape(densityAnalysisArea))
-    
-    plotDensity = True
     if plotDensity:
         print('Avg Density:', avgDensity)
         print('Weighted Avg Density:', avgWeiDensity)
         cl.copy(str(avgDensity) + '\t' + str(avgWeiDensity))  # copy values to clipboard to paste excel :)
-    
+
         plt.title(filepath)
         plt.plot(np.divide(range(len(density)), sampRate), density,
                  label="Average Density: " + str(avgDensity), linewidth=0.5)
@@ -335,4 +327,3 @@ if __name__ == '__main__':
         plt.savefig("plots/" + saveFolder + "density_" + filename + ".svg")
         plt.savefig("plots/" + saveFolder + "density_" + filename + ".png")
         plt.show()
-    '''
