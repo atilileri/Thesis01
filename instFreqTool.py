@@ -4,7 +4,7 @@ Instant Frequency Spectogram Based on HHT
 """
 import pyhht.emd
 import PyEMD
-import pyeemd
+# import pyeemd
 from utils import readMonoWav
 import matplotlib.pyplot as plt
 import scipy.signal as sp
@@ -23,8 +23,8 @@ if __name__ == '__main__':
     # filepath = './METU Recordings/hh2_breath/hh2_23_03.02.050_149_tr.wav'
     # filepath = './METU Recordings/hh2_withEdges/hh2_random001_noised.wav'
 
-    saveFolder += 'density/bg/'
-    filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_00.55.000-571_bg.wav'
+    # saveFolder += 'density/bg/'
+    # filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_00.55.000-571_bg.wav'
     # filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_01.12.437-204_bg.wav'
     # filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_01.22.210-876_bg.wav'
     # filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_01.31.170-404_bg.wav'
@@ -37,8 +37,8 @@ if __name__ == '__main__':
     # filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_02.37.779-554_bg.wav'
     # filepath = './TED Recordings/BillGates_2009/bg/BillGates_2009_02.39.465-329_bg.wav'
 
-    # saveFolder += 'density/breath/'
-    # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_00.32.850-525_breath.wav'
+    saveFolder += 'density/breath/'
+    filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_00.32.850-525_breath.wav'
     # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_00.40.871-424_breath.wav'
     # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_00.43.460-591_breath.wav'
     # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_00.52.458-437_breath.wav'
@@ -69,18 +69,18 @@ if __name__ == '__main__':
     # filepath = './TED Recordings/BillGates_2009/non-voiced/BillGates_2009_05.04.223-208_nv.wav'
 
     # Parameter options
-    useCenterFrame = True  # Whether to use a centered portion of the signal (requires centerFrameLenBySamples)
+    useCenterFrame = False  # Whether to use a centered portion of the signal (requires centerFrameLenBySamples)
+    useImfNormalization = True  # Whether to use normalized data on Instant Freq Spectogram
     plotSpec = True
     plotImfs = False
 
 
     class EMDSelection(Enum):  # Different EMD algorithms
-            pyHht = 1
-            pyEmdVanilla = 2
-            pyEmdEnsemble = 3  # Takes too long and never converges to zero IMF extraction(at least 1 IMF + 1 residue)
-            pyEmdComplete = 4  # Not working
-            pyEemd = 5
-
+        pyHht = 1
+        pyEmdVanilla = 2
+        pyEmdEnsemble = 3   # Takes too long and never converges to zero IMF extraction(at least 1 IMF + 1 residue)
+        pyEmdComplete = 4   # Not working
+        pyEemd = 5          # Not working
 
     emdSel = EMDSelection.pyHht
 
@@ -117,7 +117,8 @@ if __name__ == '__main__':
             decomposer = PyEMD.CEEMDAN()
             decomposedSignals = decomposer(residue)
         elif emdSel is EMDSelection.pyEemd:
-            imfs = pyeemd.ceemdan(residue, S_number=4, num_siftings=50)
+            # imfs = pyeemd.ceemdan(residue, S_number=4, num_siftings=50)
+            break
 
         if len(decomposedSignals) > 1:
             imfs.extend(decomposedSignals[:-1])
@@ -137,7 +138,15 @@ if __name__ == '__main__':
         hx = sp.hilbert(imf)
         mag = np.abs(hx)  # magnitudes are obtained before normalization
         phx = np.unwrap(np.arctan2(hx.imag, hx.real))
-        instf = sampRate / (2 * np.pi) * np.diff(phx)
+        diff = np.diff(phx)
+
+        # todo - ai : makeup
+        # phOff = 0
+        # for d in range(len(diff)):
+        #     if diff[d] < 0:
+        #         phOff += (2 * np.pi)
+        #         diff[d] += np.pi
+        instf = (sampRate / (2 * np.pi)) * diff
 
         instfs.append(instf)
         mags.append(mag)
@@ -151,7 +160,6 @@ if __name__ == '__main__':
         # get a copy for normalization
         normalized = imfEach.copy()
         envelope = normalized  # pseudo envelope for while-loop entrance
-
         while len(set(envelope)) > 1:  # loop until envelope is all the same
             # 1. Take absolute value of IMF.
             absImf = np.abs(normalized)
@@ -162,7 +170,6 @@ if __name__ == '__main__':
             # 3. Based on these extrema, construct envelope.
             envelope = np.interp(range(len(absImf)), peaks, absImf[peaks])
             # 4. Normalize IMF using the envelope. The FM part of signal becomes almost equal amplitude.
-            # todo - hh : Is explanation above possible / logical ?
             normalized = np.divide(normalized, envelope)
             # 5. Repeat process 2-4 after the amplitude of normalized IMF retains a straight line with identical value.
         imfsNorm.append(normalized)
@@ -173,7 +180,17 @@ if __name__ == '__main__':
     for eachImf in imfsNorm:
         hx2 = sp.hilbert(eachImf)
         phx2 = np.unwrap(np.arctan2(hx2.imag, hx2.real))
-        tempInstf2 = sampRate / (2 * np.pi) * np.diff(phx2)
+        diff2 = np.diff(phx2)
+
+        # todo - ai : makeup
+        # phOff = 0
+        # for d in range(len(diff2)):
+        #     if diff2[d] < 0:
+        #         phOff += (2 * np.pi)
+        #         diff2[d] += np.pi
+        # instf = (sampRate / (2 * np.pi)) * diff2
+
+        tempInstf2 = (sampRate / (2 * np.pi)) * diff2
         instfsNorm.append(tempInstf2)
     print('Instant Frequencies calculated on normalized IMFs.')
 
@@ -182,11 +199,27 @@ if __name__ == '__main__':
     freqBinCount = int(np.ceil(sampRate / (freqBinDivider * 2)))
     specs = np.zeros(shape=(len(sig), freqBinCount))
 
+    if useImfNormalization:
+        instfArr = instfsNorm
+    else:
+        instfArr = instfs
     # Prepare spectogram data
+    # spec1d = []
+    # spec1dAll = [None] * len(instfArr)
     for frameIdx in range(len(sig) - 1):
-        for freqIdx in range(len(instfsNorm)):
-            freq = instfsNorm[freqIdx][frameIdx]
+        # spec1d.clear()
+        for freqIdx in range(len(instfArr)):
+            # if spec1dAll[freqIdx] is None:
+            #     spec1dAll[freqIdx] = []
+            freq = instfArr[freqIdx][frameIdx]
             specs[frameIdx][int(np.floor(abs(freq) / freqBinDivider))] += mags[freqIdx][frameIdx]
+            # spec1dAll[freqIdx].append(int(np.floor(abs(freq) / freqBinDivider)))
+
+        # todo - ai : makeup
+        # spec1dAll.append(spec1d)
+        # print('Frame ', frameIdx,
+        #       'Freq :', int(np.floor(abs(freq) / freqBinDivider)),
+        #       'Mag: ', mags[5][frameIdx])
     print('Spectogram prepared.')
 
     # Specialize density analysis area
@@ -211,20 +244,36 @@ if __name__ == '__main__':
         fig, ax = plt.subplots(figsize=(15 * specsAspectRatio, 15))
 
         data = np.swapaxes(specs, 0, 1)
-        data = np.ma.masked_where(data < 0.001, data)
+        data = np.ma.masked_values(data, 0)
 
         cmap = plt.cm.magma
         cmap.set_bad(color='white')
 
-        cax = ax.imshow(data, interpolation='nearest', cmap=cmap, origin='lower', aspect='auto')
+        cax = ax.imshow(data, interpolation='nearest', cmap=cmap, origin='lower')
         ax.set_title(filename + ' Magnitudes of IMFs')
 
         # Add colorbar, make sure to specify tick locations to match desired ticklabels
-        cbar = fig.colorbar(cax, ticks=[0, 200, 400])
-        cbar.ax.set_yticklabels(['0', '> ', '23'])  # vertically oriented colorbar
+        cbar = fig.colorbar(cax)
         # plt.gca().invert_yaxis()
         plt.savefig('plots/graphMag' + filename + '.png')
+        plt.show()
 
+        # for spc in spec1dAll:
+        #     plt.plot(spc)
+        # plt.show()
+
+        for ifq in instfs:
+            plt.title(filename + ' Frequencies of IMFs')
+            plt.savefig("plots/graphAllInstf_" + filename + ".svg")
+            plt.savefig("plots/graphAllInstf_" + filename + ".png")
+            plt.plot(ifq)
+        plt.show()
+
+        for ifq in instfsNorm:
+            plt.title(filename + ' Frequencies of Normalized IMFs')
+            plt.savefig("plots/graphAllInstfNorm_" + filename + ".svg")
+            plt.savefig("plots/graphAllInstfNorm_" + filename + ".png")
+            plt.plot(ifq)
         plt.show()
 
     if plotImfs:
@@ -262,6 +311,7 @@ if __name__ == '__main__':
             plt.savefig("plots/graphImf"+str(i+1)+".png")
             plt.show()
 
+# todo - ai : makeup
     '''
     print('IMFs:', np.shape(imfsAll))
     print('IMFsNorm:', np.shape(imfsAllNorm))
