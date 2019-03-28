@@ -6,6 +6,8 @@ Python implementation of: https://www.researchgate.net/publication/
 
 import numpy as np
 import utils
+import scipy.signal as sp
+import matplotlib.pyplot as plt
 
 path = utils.prefix + '/Initial Breath Examples/'
 # path = utils.prefix + '/METU Recordings/hh2_breath/'
@@ -189,10 +191,10 @@ for i in range(0, len(inputSignal), int(hopSize * fs)):
     engThreshold = 999999  # todo - ai : calculate this. Pseudo for now
     if bsmXi > bsmThreshold and zcrXi < zcrThreshold and steXi < engThreshold:
         # print(i, '-', stopIdx, ': BREATH')
-        initialClassifications.append([analysisFrame, [i, stopIdx, 1]])
+        initialClassifications.append([analysisFrame, [i, stopIdx, 1], steInDbXi, zcrXi])
     else:
         # print(i, '-', stopIdx, ': no')
-        initialClassifications.append([analysisFrame, [i, stopIdx, 0]])
+        initialClassifications.append([analysisFrame, [i, stopIdx, 0], steInDbXi, zcrXi])
 
 print('\nInitial Classifications are Done.')
 
@@ -203,3 +205,87 @@ for frame in initialClassifications:
         print('BREATH')
     elif frame[1][2] == 0:
         print('no')
+
+'''
+Section III. EDGE DETECTION AND FALSE ALARM ELIMINATION
+'''
+
+''' Section III-A : General Approach to False Detection Elimination
+In both of the edge detection algorithms presented here, similar criteria are used for rejection of false positives.
+1) Preliminary Duration Threshold: A breath event is expected to yield a significant peak in the contour of the breath 
+similarity measure function, i.e., a considerable number of frames that rise above the similarity threshold. If the 
+number of such frames is too low, it is likely to be a false detection.
+2) Upper Energy Threshold: Typically, the local energy within a breath epoch is much lower than that of voiced speech 
+and somewhat lower than most of the unvoiced speech (see Fig. 7). Hence, if some frames in the detected epoch, after 
+edge marking, exceed a predefined energy threshold, the section should be rejected.
+3) Lower ZCR Threshold: Since most of the breaths are unvoiced sounds, the ZCR during a breath event is expected to be 
+in the same range as that of most unvoiced phonemes, i.e., higher than that of voiced phonemes. This was empirically 
+verified. Therefore, if the ZCR throughout the entire marked section is beneath a ZCR lower threshold, it will be 
+rejected as a probable voiced phoneme.
+4) Upper ZCR Threshold: It is known that certain unvoiced phonemes, such as fricative consonants, can exhibit a high ZCR
+(0.3–0.4 given a 44-kHz sampling frequency). Preliminary experiments showed that the maximum ZCR of breath sounds is
+considerably lower (see Fig. 8). An upper threshold on the ZCR can thus prevent false detections of certain fricatives 
+as breaths.
+5) Final Duration Threshold: A breath sound is typically longer than 100 ms. Therefore, if the detected breath event, 
+after accurate edge marking, is shorter than that duration, it should be rejected. In practice, in order to account for 
+very short breaths as well, the duration threshold may be set more permissively.
+'''
+# todo - ai: tune these parameters
+preliminaryDurationThreshold = 0
+UpperEnergyThreshold = 0
+LowerZCRThreshold = 0
+UpperZCRThreshold = 0
+FinalDurationThreshold = 0
+
+'''
+Section III-B : Edge Detection
+'''
+'''
+Section III-B.1: Edge Marking Using Double Energy Threshold and Deep Picking
+'''
+# todo - ai : very simple but requires fine tuning. Implement later on.
+
+'''
+Section III-B.2: Edge Marking With Spurious Deep Elimination
+'''
+# The binary vector of breathiness indices
+breathinessIndices = []
+for frame in initialClassifications:
+    breathinessIndices.append(frame[1][2])
+
+# To reduce the effect of possible false detections, the binary vector of breathiness indices is first smoothed with a
+# nine-point median filter.
+breathinessIndices = sp.medfilt(breathinessIndices, 9)
+# The block of ones indicates the approximate location of the breath, and the algorithm will look for the exact edges
+# in the vicinity of this block.
+# print(breathnessIndices)
+leftFound = False
+leftIdx = 0
+blocks = []
+for idx in range(len(breathinessIndices)):
+    if 1 == breathinessIndices[idx] and (not leftFound):
+        leftIdx = idx
+        leftFound = True
+    elif 0 == breathinessIndices[idx] and leftFound:
+        blocks.append((leftIdx, idx-1))
+        leftFound = False  # reset bool as we go to new block
+print(blocks)
+# Let us denote the first frame index (representing its location along the time axis) of the block of ones as Xb1 and
+# its last frame index as Xb2. For simplicity, we shall refer to the section [Xb1, Xb2] as the “candidate section.”
+candidateSections = []
+energyContours = []
+energyContourOfSection = []
+for block in blocks:
+    candidateSections.append((initialClassifications[block[0]][1][0], initialClassifications[block[1]][1][1]))
+    # The edge search is conducted by examining the section’s energy contour
+    energyContourOfSection.clear()
+    for z in initialClassifications[block[0]:block[1]]:
+        energyContourOfSection.append(z[2])
+    # energyContours.append(energyContourOfSection)
+    # To reduce the number of such deeps, the energy contour is prefiltered with a threepoint running average filter
+    energyContourOfSection = utils.calcRunningAvg(energyContourOfSection, 3)
+    # plt.plot(energyContourOfSection)
+    # plt.show()
+    # After prefiltering, the remaining deeps are divided into significant and insignificant
+    # todo - ai : continue here
+print(candidateSections)

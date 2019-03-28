@@ -254,3 +254,11 @@ def calcBSM(cepstogram, templateMatrix, varianceMatrix, normSingVect):
     bsm = cp * cn
     # print('Similarity Measure for frame:', bsm, '=', cp, '*', cn)
     return bsm
+
+
+# Calculates p-point running average(moving mean) on inputArray
+def calcRunningAvg(inputArray, p):
+    runAvg = []
+    for i in range(p, len(inputArray)+1):  # +1 is because slicing does not include last member in the line below.
+        runAvg.append(np.average(inputArray[i - p:i]))
+    return runAvg
