@@ -7,6 +7,7 @@ from scipy import signal
 import python_speech_features
 import os
 import glob
+import pickle
 
 '''
 Project Configuration
@@ -45,9 +46,9 @@ def readExampleSet(folderPath):
     sampleRate = 0
     '''
     Section II-A.1:
-    Several signals containing isolated breath examples are selected, forming the example set. From each example, a section
-    of fixed length, typically equal to the length of the shortest example in the set (about 100–160 ms), is derived.
-    This length is used throughout the algorithm as the frame length (see Section II-C).
+    Several signals containing isolated breath examples are selected, forming the example set. From each example, a 
+    section of fixed length, typically equal to the length of the shortest example in the set (about 100–160 ms), is
+    derived. This length is used throughout the algorithm as the frame length (see Section II-C).
     '''
     for filePath in glob.glob(os.path.join(folderPath, '*.wav')):
         sampleRate, samples = readMonoWav(filePath)
@@ -60,7 +61,7 @@ def readExampleSet(folderPath):
 
     # fix frame length. Refer to Section B.1
     for file in exampleSet:
-        file[2] = file[2][:minlen]
+        file[2] = getCenterWindow(file[2], minlen)
 
     return exampleSet, minlen/sampleRate
 
@@ -120,9 +121,9 @@ def createMfccMatrix(sig,
     return mfccMatrix
 
 
-def getCenterWindow(frame, windowLength):
+def getCenterWindow(frame, windowLengthInSamples):
     midIndex = len(frame) / 2
-    halfWindowLen = min(midIndex, windowLength / 2)
+    halfWindowLen = min(midIndex, windowLengthInSamples / 2)
     # we cast to int below, instead of above(where halfWindowLen is defined)
     # because otherwise our slice is one element short, for odd windowLength values
     centerWindow = frame[int(midIndex-halfWindowLen):int(midIndex+halfWindowLen)]
@@ -259,6 +260,207 @@ def calcBSM(cepstogram, templateMatrix, varianceMatrix, normSingVect):
 # Calculates p-point running average(moving mean) on inputArray
 def calcRunningAvg(inputArray, p):
     runAvg = []
-    for i in range(p, len(inputArray)+1):  # +1 is because slicing does not include last member in the line below.
-        runAvg.append(np.average(inputArray[i - p:i]))
+    if len(inputArray) < p:  # only return average, if input array is smaller than point-size
+        runAvg.append(np.average(inputArray))
+    else:
+        for i in range(p, len(inputArray)+1):  # +1 is because slicing does not include last member in the line below.
+            runAvg.append(np.average(inputArray[i - p:i]))
     return runAvg
+
+
+# Saves variable data to file
+def saveData(data, path):
+    pickle.dump(data, open(path, "wb"))
+
+
+# Loads data from file into variable
+def loadData(path):
+    return pickle.load(open(path, "rb"))
+
+
+def calcTemplateParameters(exampleSetPath, resultSavePath):
+    templateParameters = {}
+
+    allMatrixesOfExampleSet = list()
+    exampleSet, frameLengthInSecs = readExampleSet(exampleSetPath)
+    templateParameters['frameLengthInSecs'] = frameLengthInSecs
+    for fileInfo in exampleSet:
+        # print(fileInfo)
+        # print(len(fileInfo[2]))
+        sampRate = fileInfo[1]
+        sig = fileInfo[2]
+        mfccMatrix = createMfccMatrix(sig, sampRate)
+
+        # print(mfccMatrix)
+        allMatrixesOfExampleSet.append(mfccMatrix)
+
+    templateParameters['cepstograms'] = allMatrixesOfExampleSet
+    ''' Section II-A.5:
+    A mean cepstrogram is computed by averaging the matrices of the example set, as follows:
+    T = 1/N * Epsilon( M(i) i=1,2,...,N )
+    This defines the template matrix T. In a similar manner, a variance matrix V is computed, where the distribution of
+    each coefficient is measured along the example set.
+    '''
+    templateMatrix = np.mean(allMatrixesOfExampleSet, axis=0)
+    templateParameters['templateMatrix'] = templateMatrix
+
+    varianceMatrix = np.var(allMatrixesOfExampleSet, axis=0)
+    templateParameters['varianceMatrix'] = varianceMatrix
+    ''' Section II-A.6:
+    In addition to the template matrix, another feature vector is computed as follows: the matrices of the example set
+    are concatenated into one matrix, and the singular value decomposition (SVD) of the resulting matrix is computed.
+    Then, the normalized singular vector S corresponding to the largest singular value is derived. Due to the information
+    packing property of the SVD transform [28], the singular vector is expected to capture the most important features of
+    the breath event, and thus, improve the separation ability of the algorithm when used together with the template matrix
+    in the calculation of the breath similarity measure of test signals (see Section II-C).
+    '''
+    # Concat matrix
+    concatanatedMatrix = np.concatenate(allMatrixesOfExampleSet, axis=0)
+    # Compute SVD
+    singularVectors, singularValues, _ = np.linalg.svd(concatanatedMatrix.transpose(), full_matrices=True)
+    mainSingularVector = singularVectors[np.argmax(np.abs(singularValues))]
+    # print('allMatrixesOfExampleSet:', np.shape(allMatrixesOfExampleSet))  # (24 files, 63 subframes, 13 mfcc features)
+    # print('templateMatrix:', templateMatrix.shape)  # (63 subframes, 13 mfcc features)
+    # print('varianceMatrix:', varianceMatrix.shape)  # (63 subframes, 13 mfcc features)
+    # print('concatanatedMatrix:', concatanatedMatrix.shape)
+    # print('singularVector:', np.shape(mainSingularVector))
+
+    # get normalized Singular Vector for calculations of Cn
+    normSingVect = mainSingularVector / np.sqrt(np.sum(np.square(mainSingularVector)))
+    templateParameters['normalizedSingularVector'] = normSingVect
+
+    # Go over example set again and find threshold for Breath Similarity Measurements in "Step II-C.Detection"
+    '''
+    This threshold is initially set in the learning phase, during the template construction, when the breath similarity
+    measure B(Xi, T, V , S) is computed for each of the examples. The minimum value of the similarity measures between each
+    of the examples and the template is determined, denoted by Bm. The threshold is set to Bm / 2.
+    '''
+    bsmArray = []
+    for cepsEach in allMatrixesOfExampleSet:
+        bsmEach = calcBSM(cepsEach, templateMatrix, varianceMatrix, normSingVect)
+        bsmArray.append(bsmEach)
+    bm = min(bsmArray)
+    bsmThreshold = bm / 2
+    templateParameters['bsmThreshold'] = bsmThreshold
+
+    saveData(templateParameters, resultSavePath)
+
+
+def calcInitialClassifications(inputFilePath, templateMatrix, varianceMatrix,
+                               normSingVect, frameLengthInSecs, bsmThreshold, resultSavePath):
+    # Read input audio signal
+    fs, inputSignal = readMonoWav(inputFilePath)
+
+    # print('Input File:', path)
+    # print(fs, 'Hz, Size=', inputSignal.dtype, '*', len(inputSignal), 'bytes, Array:', inputSignal)
+
+    # todo - ai: change hop size to 0.010, now its 1 seconds for debugging purposes
+    hopSize = 1  # hop size is 10 ms for detection phase
+    initialClassifications = []
+    frameParameters = {}
+    for i in range(0, len(inputSignal), int(hopSize * fs)):
+        # MyNote 1 - ai : Since there is no explicit information on the length of each consecutive analysis frame in
+        #  detection phase, a minimum value is taken as analysis frame size. Which is the length of the frame
+        #  (frameLengthInSecs) derived from each breath example in the training phase.
+        # todo - hh : ask if frameLengthInSecs | there is a general frame length in the literature?
+        stopIdx = i + int(frameLengthInSecs * fs)
+        print('\rCalculating parameters for frame', i, '-', stopIdx, 'of', len(inputSignal), '...', end=' ')
+        analysisFrame = inputSignal[i:stopIdx]
+        frameParameters['sampleRate'] = fs
+        frameParameters['startSampleIndex'] = i
+        frameParameters['endSampleIndex'] = stopIdx
+        ''' Section II-B.1:
+        The MFCC matrix is computed as in the template generation process (see previous section). For this purpose, the
+        length of the MFCC analysis window used for the detection phase must match the length of the frame 
+        (frameLengthInSecs) derived from each breath example in the training phase.
+        '''
+        # The Cepstrogram (MFCC matrix) is computed over a window located around the center of the frame
+        windowLengthInSamples = len(analysisFrame)  # window size is frameLengthInSecs for mfcc calculations
+        centerWindow = getCenterWindow(analysisFrame, windowLengthInSamples)
+        # Since we are using frameLengthInSecs as the analysis frame length(Refer to "Note 1" above), we do not need to
+        # get the center window of the frame with its own length :) but, we are doing it for generality of the code.
+        # This decision makes sense when frame length in Detection Phase is changed to a value other than MFCC analysis
+        # frame length. Note 1 states this also. But for now, centerWindow is exactly same as analysisFrame in below :)
+        cepstogramXi = createMfccMatrix(centerWindow, fs)
+        ''' Section II-B.2:
+        The short-time energy is computed according to the following:
+        E = 1/N * Epsilon(goes n=[N0, N0+(N-1)])(x^2[n])
+        where x[n] is the sampled audio signal, and N is the window length in samples (corresponding to 10 ms). It is
+        then converted to a logarithmic scale
+        E, dB = 10 * log10(E)
+        '''
+        # Short Time Energy is computed over a window located around the center of the frame
+        windowLengthInSamples = int(0.010 * fs)  # window size is 10 ms for STE calculations
+        centerWindow = getCenterWindow(analysisFrame, windowLengthInSamples)
+        steXi, steInDbXi = calcShortTimeEnergy(centerWindow)
+        frameParameters['shortTimeEnergy'] = steInDbXi
+        ''' Section II-B.3:
+        The zero-crossing rate (ZCR) is defined as the number of times the audio waveform changes its sign, normalized
+        by the window length N in samples (corresponding to 10 ms)
+        ZCR = 1/N * Epsilon(goes n=[N0+1, N0+(N-1)])( 0.5 * abs( sign(x[n]) - sign(x[n-1]) ) )
+        '''
+        # Zero Crossing Rate is computed over a window located around the center of the frame
+        windowLengthInSamples = int(0.010 * fs)  # window size is 10 ms for ZCR calculations
+        centerWindow = getCenterWindow(analysisFrame, windowLengthInSamples)
+        zcrXi = calcZeroCrossingRate(centerWindow)
+        frameParameters['zeroCrossingRate'] = zcrXi
+        ''' Section II-B.4:
+        The spectral slope is computed by taking the discrete Fourier transform of the analysis window, evaluating its
+        magnitude at frequencies of pi/2 and pi (corresponding here to 11 and 22 kHz, respectively), and computing the
+        slope of the straight line fit between these two points. It is known that in voiced speech most of the spectral
+        energy is contained in the lower frequencies (below 4 kHz). Therefore, in voiced speech, the spectrum is
+        expected to be rather flat between 11 and 22 kHz. In periods of silence, the waveform is close to random, which
+        also leads to a relatively flat spectrum throughout the entire band. This suggests that the spectral slope in
+        voiced/silence parts would yield low values, when measured as described previously. On the other hand, in breath
+        sounds, like in most unvoiced phonemes, there is still a significant amount of energy in the middle frequency 
+        band (10–15 kHz) and relatively low energy in the high band (22 kHz). Thus, the spectral slope is expected to be
+        steeper, and could be used to differentiate between voiced/silence and unvoiced/breath. As such, the spectral
+        slope is used here as an additional parameter for identifying the edges of the breath (see Section III).
+        '''
+        # The Spectral Slope is computed over a window located around the center of the frame
+        # MyNote 2 - ai : window length is not referred exactly in the article so, whole frame is taken, same as mfcc.
+        # todo - hh : ask if 10 ms | mfcc analysis window length | full analysis frame ? (last 2 are same for now)
+        windowLengthInSamples = len(analysisFrame)  # window size is frameLengthInSecs for slope calculations
+        centerWindow = getCenterWindow(analysisFrame, windowLengthInSamples)
+        slopeXi = calcSpectralSlope(centerWindow, fs)
+        frameParameters['slope'] = slopeXi
+        ''' Section II-C : Computation of the Breath Similarity Measure
+        Once the aforementioned parameters are computed for a given frame Xi, its short-time cepstrogram (MFCC matrix)
+        is used for calculating its breath similarity measure. The similarity measure, denoted B(Xi, T, V, S), is 
+        computed between the cepstrogram of the frame, M(Xi), the template cepstrogram T (with V being the variance
+        matrix) and the singular vector S . The steps of the computation are as follows (Fig. 6):
+        '''
+        bsmXi = calcBSM(cepstogramXi, templateMatrix, varianceMatrix, normSingVect)
+        frameParameters['breathSimilarityMeasure'] = bsmXi
+        ''' Section II-C.Detection
+        The breath detection involves a two-step decision. The initial decision treats each frame independently of other
+        frames and classifies each as breathy/not breathy based on its similarity measure B(Xi, T, V, S), energy and
+        zero-crossing rate. A frame is initially classified as breathy if all three of the following occur:
+        1) The breath similarity measure is above a given threshold. This threshold is initially set in the learning phase,
+        during the template construction, when the breath similarity measure B(Xi, T, V, S) is computed for each of the
+        examples. The minimum value of the similarity measures between each of the examples and the template is determined, 
+        denoted by Bm. The threshold is set to Bm / 2. The logic behind this setting is that the frame-to-template
+        similarity of breath sounds in general is expected to be somewhat lower than the similarity among examples used to
+        construct the template in the first place. This parameter is referred as "bsmThreshold".
+        2) The energy is below a given threshold, which is chosen to be below the average energy of voiced speech (see
+        Section III-A). This parameter is referred as "engThreshold".
+        3) The zero-crossing rate is below a given threshold. Experimental data have shown that ZCR above 0.25 (assuming
+        a sampling rate of 44 kHz) is exhibited only by a number of unvoiced fricatives, and breath sounds have much lower
+        ZCR (see Section III-A). This parameter is referred as "zcrThreshold".
+        Following the initial detection, a binary breathiness index is assigned to each frame: breathy frames are assigned
+        index 1, whereas nonbreathy frames are assigned index 0.
+        '''
+        zcrThreshold = 0.25
+        # todo - hh : ask what can we assign to energy threshold, according to fig. 7
+        engThreshold = 999999  # todo - ai : calculate this. Pseudo for now
+        if bsmXi > bsmThreshold and zcrXi < zcrThreshold and steXi < engThreshold:
+            # print(i, '-', stopIdx, ': BREATH')
+            frameParameters['breathinessIndice'] = 1
+        else:
+            # print(i, '-', stopIdx, ': no')
+            frameParameters['breathinessIndice'] = 0
+        initialClassifications.append(frameParameters.copy())  # copy before clear the temp parameter dictionary
+        frameParameters.clear()
+    print('\nInitial Classifications are Done.')
+
+    saveData(initialClassifications, resultSavePath)

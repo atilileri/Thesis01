@@ -9,10 +9,10 @@ import utils
 import scipy.signal as sp
 import matplotlib.pyplot as plt
 
-path = utils.prefix + '/Initial Breath Examples/'
-# path = utils.prefix + '/METU Recordings/hh2_breath/'
-# path = utils.prefix + '/METU Recordings/'
-
+rebuildTemplateParams = False
+rebuildInitialClassifications = False
+templateParamsPath = './CodeDataStorage/templateParameters.pickle'
+initialClassificationsPath = './CodeDataStorage/initialClassifications.pickle'
 '''
 Section II. INITIAL DETECTION ALGORITHM
 '''
@@ -20,51 +20,20 @@ Section II. INITIAL DETECTION ALGORITHM
 '''
 Section II-A : Constructing the Template
 '''
+if rebuildTemplateParams:
+    path = utils.prefix + '/Initial Breath Examples/'
+    # path = utils.prefix + '/METU Recordings/hh2_breath/'
+    # path = utils.prefix + '/METU Recordings/'
+    utils.calcTemplateParameters(exampleSetPath=path, resultSavePath=templateParamsPath)
 
-allMatrixesOfExampleSet = list()
-exampleSet, frameLengthInSecs = utils.readExampleSet(path)
-for fileInfo in exampleSet:
-    # print(fileInfo)
-    # print(len(fileInfo[2]))
-    sampRate = fileInfo[1]
-    sig = fileInfo[2]
-    mfccMatrix = utils.createMfccMatrix(sig, sampRate)
-
-    # print(mfccMatrix)
-    allMatrixesOfExampleSet.append(mfccMatrix)
-
-''' Section II-A.5:
-A mean cepstrogram is computed by averaging the matrices of the example set, as follows:
-T = 1/N * Epsilon( M(i) i=1,2,...,N )
-This defines the template matrix T. In a similar manner, a variance matrix V is computed, where the distribution of
-each coefficient is measured along the example set.
-'''
-templateMatrix = np.mean(allMatrixesOfExampleSet, axis=0)
-varianceMatrix = np.var(allMatrixesOfExampleSet, axis=0)
-
-''' Section II-A.6:
-In addition to the template matrix, another feature vector is computed as follows: the matrices of the example set
-are concatenated into one matrix, and the singular value decomposition (SVD) of the resulting matrix is computed.
-Then, the normalized singular vector S corresponding to the largest singular value is derived. Due to the information
-packing property of the SVD transform [28], the singular vector is expected to capture the most important features of
-the breath event, and thus, improve the separation ability of the algorithm when used together with the template matrix
-in the calculation of the breath similarity measure of test signals (see Section II-C).
-'''
-# Concat matrix
-concatanatedMatrix = np.concatenate(allMatrixesOfExampleSet, axis=0)
-# Compute SVD
-singularVectors, singularValues, _ = np.linalg.svd(concatanatedMatrix.transpose(), full_matrices=True)
-mainSingularVector = singularVectors[np.argmax(np.abs(singularValues))]
-# print('allMatrixesOfExampleSet:', np.shape(allMatrixesOfExampleSet))  # (24 files, 63 subframes, 13 mfcc features)
-# print('templateMatrix:', templateMatrix.shape)  # (63 subframes, 13 mfcc features)
-# print('varianceMatrix:', varianceMatrix.shape)  # (63 subframes, 13 mfcc features)
-# print('concatanatedMatrix:', concatanatedMatrix.shape)
-# print('singularVector:', np.shape(mainSingularVector))
-
-# get normalized Singular Vector for calculations of Cn
-normSingVect = mainSingularVector / np.sqrt(np.sum(np.square(mainSingularVector)))
-
-print('Template & Variance Matrix, Singular Vector are Constructed')
+templateParameters = utils.loadData(templateParamsPath)
+allMatrixesOfExampleSet = templateParameters['cepstograms']
+templateMatrix = templateParameters['templateMatrix']
+varianceMatrix = templateParameters['varianceMatrix']
+normSingVect = templateParameters['normalizedSingularVector']
+frameLengthInSecs = templateParameters['frameLengthInSecs']
+bsmThreshold = templateParameters['bsmThreshold']
+print('Template Parameters are Constructed')
 
 ''' Section II-B : Detection Phase
 The input for the detection algorithm is an audio signal (a monophonic recording of either speech or song, with no
@@ -73,137 +42,27 @@ background music), sampled with 44 kHz. The signal is divided into consecutive a
 energy, zero-crossing rate, and spectral slope (see below). Each of these is computed over a window located around the
 center of the frame.
 '''
+if rebuildInitialClassifications:
+    # Note that this file can not be added to github, because it is larger than the size limit(100MB)
+    path = './whole_speech.wav'
+    # todo - ai: fix performance
+    utils.calcInitialClassifications(path, templateMatrix, varianceMatrix,
+                                     normSingVect, frameLengthInSecs, bsmThreshold,
+                                     resultSavePath=initialClassificationsPath)
 
-# Go over example set again and find threshold for Breath Similarity Measurements in "Step II-C.Detection"
-'''
-This threshold is initially set in the learning phase, during the template construction, when the breath similarity
-measure B(Xi, T, V , S) is computed for each of the examples. The minimum value of the similarity measures between each
-of the examples and the template is determined, denoted by Bm. The threshold is set to Bm / 2.
-'''
-bsmArray = []
-for cepsEach in allMatrixesOfExampleSet:
-    bsmEach = utils.calcBSM(cepsEach, templateMatrix, varianceMatrix, normSingVect)
-    bsmArray.append(bsmEach)
-bm = min(bsmArray)
-bsmThreshold = bm / 2
-
-# Read input audio signal
-# Note that this file can not be added to github, because it is larger than the size limit(100MB)
-path = './whole_speech.wav'
-fs, inputSignal = utils.readMonoWav(path)
-
-# print('Input File:', path)
-# print(fs, 'Hz, Size=', inputSignal.dtype, '*', len(inputSignal), 'bytes, Array:', inputSignal)
-
-# todo - ai: change hop size to 0.010, now its 10 seconds for debugging purposes
-hopSize = 10  # hop size is 10 ms for detection phase
-initialClassifications = []
-for i in range(0, len(inputSignal), int(hopSize * fs)):
-    # MyNote 1 - ai : Since there is no explicit information on the length of each consecutive analysis frame in
-    #  detection phase, a minimum value is taken as analysis frame size. Which is the length of the frame
-    #  (frameLengthInSecs) derived from each breath example in the training phase.
-    # todo - hh : ask if frameLengthInSecs | there is a general frame length in the literature?
-    stopIdx = i + int(frameLengthInSecs * fs)
-    print('\rCalculating parameters for frame', i, '-', stopIdx, 'of', len(inputSignal), '...', end=' ')
-    analysisFrame = inputSignal[i:stopIdx]
-
-    ''' Section II-B.1:
-    The MFCC matrix is computed as in the template generation process (see previous section). For this purpose, the
-    length of the MFCC analysis window used for the detection phase must match the length of the frame 
-    (frameLengthInSecs) derived from each breath example in the training phase.
-    '''
-    # The Cepstrogram (MFCC matrix) is computed over a window located around the center of the frame
-    windowLengthInSamples = len(analysisFrame)  # window size is frameLengthInSecs for mfcc calculations
-    centerWindow = utils.getCenterWindow(analysisFrame, windowLengthInSamples)
-    # Since we are using frameLengthInSecs as the analysis frame length(Refer to "Note 1" above), we do not need to
-    # get the center window of the frame with its own length :) but, we are doing it for generality of the code.
-    # This decision makes sense when frame length in Detection Phase is changed to a value other than MFCC analysis
-    # frame length. Note 1 states this also. But for now, centerWindow is exactly same as analysisFrame in below :)
-    cepstogramXi = utils.createMfccMatrix(centerWindow, fs)
-    ''' Section II-B.2:
-    The short-time energy is computed according to the following:
-    E = 1/N * Epsilon(goes n=[N0, N0+(N-1)])(x^2[n])
-    where x[n] is the sampled audio signal, and N is the window length in samples (corresponding to 10 ms). It is
-    then converted to a logarithmic scale
-    E, dB = 10 * log10(E)
-    '''
-    # Short Time Energy is computed over a window located around the center of the frame
-    windowLengthInSamples = int(0.010 * fs)  # window size is 10 ms for STE calculations
-    centerWindow = utils.getCenterWindow(analysisFrame, windowLengthInSamples)
-    steXi, steInDbXi = utils.calcShortTimeEnergy(centerWindow)
-    ''' Section II-B.3:
-    The zero-crossing rate (ZCR) is defined as the number of times the audio waveform changes its sign, normalized
-    by the window length N in samples (corresponding to 10 ms)
-    ZCR = 1/N * Epsilon(goes n=[N0+1, N0+(N-1)])( 0.5 * abs( sign(x[n]) - sign(x[n-1]) ) )
-    '''
-    # Zero Crossing Rate is computed over a window located around the center of the frame
-    windowLengthInSamples = int(0.010 * fs)  # window size is 10 ms for ZCR calculations
-    centerWindow = utils.getCenterWindow(analysisFrame, windowLengthInSamples)
-    zcrXi = utils.calcZeroCrossingRate(centerWindow)
-    ''' Section II-B.4:
-    The spectral slope is computed by taking the discrete Fourier transform of the analysis window, evaluating its
-    magnitude at frequencies of pi/2 and pi (corresponding here to 11 and 22 kHz, respectively), and computing the
-    slope of the straight line fit between these two points. It is known that in voiced speech most of the spectral
-    energy is contained in the lower frequencies (below 4 kHz). Therefore, in voiced speech, the spectrum is
-    expected to be rather flat between 11 and 22 kHz. In periods of silence, the waveform is close to random, which
-    also leads to a relatively flat spectrum throughout the entire band. This suggests that the spectral slope in
-    voiced/silence parts would yield low values, when measured as described previously. On the other hand, in breath
-    sounds, like in most unvoiced phonemes, there is still a significant amount of energy in the middle frequency 
-    band (10–15 kHz) and relatively low energy in the high band (22 kHz). Thus, the spectral slope is expected to be
-    steeper, and could be used to differentiate between voiced/silence and unvoiced/breath. As such, the spectral
-    slope is used here as an additional parameter for identifying the edges of the breath (see Section III).
-    '''
-    # The Spectral Slope is computed over a window located around the center of the frame
-    # MyNote 2 - ai : window length is not referred exactly in the article so, whole frame is taken, same as mfcc.
-    # todo - hh : ask if 10 ms | mfcc analysis window length | full analysis frame ? (last 2 are same for now)
-    windowLengthInSamples = len(analysisFrame)  # window size is frameLengthInSecs for slope calculations
-    centerWindow = utils.getCenterWindow(analysisFrame, windowLengthInSamples)
-    slopeXi = utils.calcSpectralSlope(centerWindow, fs)
-    
-    ''' Section II-C : Computation of the Breath Similarity Measure
-    Once the aforementioned parameters are computed for a given frame Xi, its short-time cepstrogram (MFCC matrix)
-    is used for calculating its breath similarity measure. The similarity measure, denoted B(Xi, T, V, S), is 
-    computed between the cepstrogram of the frame, M(Xi), the template cepstrogram T (with V being the variance
-    matrix) and the singular vector S . The steps of the computation are as follows (Fig. 6):
-    '''
-    bsmXi = utils.calcBSM(cepstogramXi, templateMatrix, varianceMatrix, normSingVect)
-
-    ''' Section II-C.Detection
-    The breath detection involves a two-step decision. The initial decision treats each frame independently of other
-    frames and classifies each as breathy/not breathy based on its similarity measure B(Xi, T, V, S), energy and
-    zero-crossing rate. A frame is initially classified as breathy if all three of the following occur:
-    1) The breath similarity measure is above a given threshold. This threshold is initially set in the learning phase,
-    during the template construction, when the breath similarity measure B(Xi, T, V, S) is computed for each of the
-    examples. The minimum value of the similarity measures between each of the examples and the template is determined, 
-    denoted by Bm. The threshold is set to Bm / 2. The logic behind this setting is that the frame-to-template
-    similarity of breath sounds in general is expected to be somewhat lower than the similarity among examples used to
-    construct the template in the first place. This parameter is referred as "bsmThreshold".
-    2) The energy is below a given threshold, which is chosen to be below the average energy of voiced speech (see
-    Section III-A). This parameter is referred as "engThreshold".
-    3) The zero-crossing rate is below a given threshold. Experimental data have shown that ZCR above 0.25 (assuming
-    a sampling rate of 44 kHz) is exhibited only by a number of unvoiced fricatives, and breath sounds have much lower
-    ZCR (see Section III-A). This parameter is referred as "zcrThreshold".
-    Following the initial detection, a binary breathiness index is assigned to each frame: breathy frames are assigned
-    index 1, whereas nonbreathy frames are assigned index 0.
-    '''
-    zcrThreshold = 0.25
-    # todo - hh : ask what can we assign to energy threshold, according to fig. 7
-    engThreshold = 999999  # todo - ai : calculate this. Pseudo for now
-    if bsmXi > bsmThreshold and zcrXi < zcrThreshold and steXi < engThreshold:
-        # print(i, '-', stopIdx, ': BREATH')
-        initialClassifications.append([analysisFrame, [i, stopIdx, 1], steInDbXi, zcrXi])
-    else:
-        # print(i, '-', stopIdx, ': no')
-        initialClassifications.append([analysisFrame, [i, stopIdx, 0], steInDbXi, zcrXi])
-
-print('\nInitial Classifications are Done.')
+initialClassifications = utils.loadData(initialClassificationsPath)
+print('Initial Classifications are Done.')
 
 # print initial classifications
 for frame in initialClassifications:
-    print(frame[1][0], '-', frame[1][1], ':', end=' ')
-    if frame[1][2] == 1:
+    fs = frame['sampleRate']
+    startIdx = frame['startSampleIndex']
+    endIdx = frame['endSampleIndex']
+    print(startIdx, '(', startIdx/fs, ') -', end=' ')
+    print(endIdx, '(', endIdx/fs, '):', end=' ')
+    if frame['breathinessIndice'] == 1:
         print('BREATH')
-    elif frame[1][2] == 0:
+    elif frame['breathinessIndice'] == 0:
         print('no')
 
 '''
@@ -251,7 +110,7 @@ Section III-B.2: Edge Marking With Spurious Deep Elimination
 # The binary vector of breathiness indices
 breathinessIndices = []
 for frame in initialClassifications:
-    breathinessIndices.append(frame[1][2])
+    breathinessIndices.append(frame['breathinessIndice'])
 
 # To reduce the effect of possible false detections, the binary vector of breathiness indices is first smoothed with a
 # nine-point median filter.
@@ -259,33 +118,31 @@ breathinessIndices = sp.medfilt(breathinessIndices, 9)
 # The block of ones indicates the approximate location of the breath, and the algorithm will look for the exact edges
 # in the vicinity of this block.
 # print(breathnessIndices)
+# Let us denote the first frame index (representing its location along the time axis) of the block of ones as Xb1 and
+# its last frame index as Xb2. For simplicity, we shall refer to the section [Xb1, Xb2] as the “candidate section.”
 leftFound = False
 leftIdx = 0
-blocks = []
+candidateSections = []
 for idx in range(len(breathinessIndices)):
     if 1 == breathinessIndices[idx] and (not leftFound):
         leftIdx = idx
         leftFound = True
     elif 0 == breathinessIndices[idx] and leftFound:
-        blocks.append((leftIdx, idx-1))
+        candidateSections.append({'startIdx': leftIdx, 'endIdx': idx - 1})
         leftFound = False  # reset bool as we go to new block
-print(blocks)
-# Let us denote the first frame index (representing its location along the time axis) of the block of ones as Xb1 and
-# its last frame index as Xb2. For simplicity, we shall refer to the section [Xb1, Xb2] as the “candidate section.”
-candidateSections = []
+# print(candidateSections)
 energyContours = []
 energyContourOfSection = []
-for block in blocks:
-    candidateSections.append((initialClassifications[block[0]][1][0], initialClassifications[block[1]][1][1]))
+for section in candidateSections:
     # The edge search is conducted by examining the section’s energy contour
     energyContourOfSection.clear()
-    for z in initialClassifications[block[0]:block[1]]:
-        energyContourOfSection.append(z[2])
-    # energyContours.append(energyContourOfSection)
+    for frame in initialClassifications[section['startIdx']:section['endIdx'] + 1]:
+        # +1 is added above because we want to include energy of the last secion too.
+        energyContourOfSection.append(frame['shortTimeEnergy'])
     # To reduce the number of such deeps, the energy contour is prefiltered with a threepoint running average filter
     energyContourOfSection = utils.calcRunningAvg(energyContourOfSection, 3)
     # plt.plot(energyContourOfSection)
     # plt.show()
     # After prefiltering, the remaining deeps are divided into significant and insignificant
     # todo - ai : continue here
-print(candidateSections)
+# print(candidateSections)
