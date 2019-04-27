@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
     saveFolder += 'density/breath/'
     # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_00.32.850-525_breath.wav'
-    filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_00.40.871-424_breath.wav'
+    # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_00.40.871-424_breath.wav'
     # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_00.43.460-591_breath.wav'
     # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_00.52.458-437_breath.wav'
     # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_00.59.523-922_breath.wav'
@@ -51,6 +51,8 @@ if __name__ == '__main__':
     # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_01.57.027-852_breath.wav'
     # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_02.26.115-493_breath.wav'
     # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_02.39.838-462_breath.wav'
+    # filepath = './METU Recordings/Dataset/BurcakYildirim/by01_01.12.305-408.wav'
+    filepath = './METU Recordings/Dataset/DemirSiginan/ds01_01.12.708-419.wav'
 
     # saveFolder += 'density/voiced/'
     # filepath = './TED Recordings/BillGates_2009/voiced/BillGates_2009_00.21.576-326_v.wav'
@@ -71,7 +73,12 @@ if __name__ == '__main__':
     # Parameter options
     useCenterFrame = False  # Whether to use a centered portion of the signal (requires centerFrameLenBySamples)
     useImfNormalization = True  # Whether to use normalized data on Instant Freq Spectogram
-    plotSpec = True
+    plotSpec = False
+    plotVect = True
+    # Start -  Only useful if plotVect is true
+    colorAsMagnitude = True  # color is used as magnitude or imfNo(alpha can be magnitude)
+    alphaAsMagnitude = False  # Whether to use alpha of rgba as magnitude. Useful if colorAsMagnitude is False
+    # End - Only useful if plotVect is true
     plotInstf = False
     plotImfs = False
     plotDensity = False
@@ -229,6 +236,37 @@ if __name__ == '__main__':
         # Add colorbar
         cbar = fig.colorbar(cax)
         plt.savefig('plots/graphMag_' + filename + '.png')
+        plt.show()
+
+    if plotVect:
+        plt.figure(figsize=(7, 3))
+        if colorAsMagnitude:
+            myCmap = plt.cm.magma
+            myCmap.set_bad(color='white')
+        else:  # color as imfNo
+            # Get the colormap colors
+            cmap = plt.cm.Dark2
+            cmap2 = plt.cm.Set1
+            myCmap = np.concatenate((cmap(np.arange(cmap.N)), cmap2(np.arange(cmap2.N))))
+        for i in range(len(instfArr)):
+            # plt.plot(i)
+            xValues = np.divide(range(len(instfArr[i])), sampRate)
+            yValues = abs(instfArr[i])
+            if colorAsMagnitude:
+                colors = mags[i][:]
+                plt.scatter(xValues, yValues, marker=",", s=0.001, c=colors,
+                            linewidths=0.001, label="Instf #"+str(i), zorder=i, cmap=myCmap)
+                plt.colorbar(ticks=[])
+            else:  # color as imfNo
+                colors = np.array([myCmap[i]] * len(instfArr[i]))
+                if alphaAsMagnitude:  # alpha is magnitude
+                    alphaValues = mags[i] / np.max(mags[i])
+                    colors[:, 3] = alphaValues[:len(instfArr[i])]
+                plt.scatter(xValues, yValues, marker=",", s=0.001,
+                            linewidths=0.001, label="Instf #"+str(i), zorder=i, color=colors)
+        plt.savefig('plots/graphMag_' + filename + '.svg')
+        plt.savefig('plots/graphMag_' + filename + '_fromVector.png', dpi=2000)
+        plt.savefig('plots/graphMag_' + filename + '.pdf', format='pdf')
         plt.show()
 
     if plotInstf:

@@ -141,11 +141,11 @@ def calcShortTimeEnergy(window):
     :param window: given window
     :return: short time energy of the window
     """
-    squared = np.square(window, dtype='int64')
-    summed = np.sum(squared, dtype='int64')
+    squared = np.square(window, dtype=type(window[0]))
+    summed = np.sum(squared, dtype=type(window[0]))
     shortTimeEnergy = summed / len(window)
     # Have it also in dB
-    energyInDb = 10 * np.log10(shortTimeEnergy)
+    energyInDb = 10 * np.log10(shortTimeEnergy + 1e-8)
     return shortTimeEnergy, energyInDb
 
 
