@@ -3,47 +3,117 @@ import matplotlib.pyplot as plt
 import scipy.io.wavfile
 import sounddevice as sd
 import time
+import numpy as np
 
 fs, inputSignal = scipy.io.wavfile.read('./by01.wav')
+filename = 'by01'  # todo - ai : implement to get auto
 
-inputSignal = inputSignal[:, 0]
-
-# plt.plot(inputSignal)
 windowLengthInSeconds = 0.001
+minLenInSeconds = 0.2
+maxLenInSeconds = 1.0
+minLenInFrames = int(minLenInSeconds * fs)
+maxLenInFrames = int(maxLenInSeconds * fs)
+
+breathStartMaxEnergy = -40
+breathEndMinEnergy = -25
+startEdgeMaxEnergy = -50
+stopEdgeMaxEnergy = -55
+inputSignal = inputSignal[:, 0]
+# todo - ai : cut all channels according to first
+
 windowLengthInFrames = int(fs*windowLengthInSeconds)
 energies = []
+zcrs = []
 for i in range(0, len(inputSignal), windowLengthInFrames):
     energies.append(utils.calcShortTimeEnergy(inputSignal[i:i+windowLengthInFrames])[1])
-# print(energies)
-plt.plot(energies)
-plt.show()
+    # todo - ai : remove zcr if unnecessary
+    zcrs.append(0)  # utils.calcZeroCrossingRate(inputSignal[i:i+windowLengthInFrames]))
 
 breaths = []
 breathing = False
 startWindowIndex = 0
 stopWindowIndex = 0
+# First(Detect) Energy Classification
 for i in range(len(energies)):
-    if energies[i] < -45 and breathing is False:
+    if energies[i] < breathStartMaxEnergy and breathing is False:
         startWindowIndex = i
         breathing = True
-    elif energies[i] > -35 and breathing is True:
+    elif energies[i] > breathEndMinEnergy and breathing is True:
         stopWindowIndex = i
-        start = int(startWindowIndex*windowLengthInFrames)
-        stop = int(stopWindowIndex*windowLengthInFrames)
-        # print(start, stop)
-        breaths.append([inputSignal[start:stop], start/fs, stop/fs])
+        # Second(Trim) Energy Classification
+        if stopWindowIndex - startWindowIndex > 10:  # pseudo minimum for too short windows
+            midWindowIndex = (startWindowIndex + stopWindowIndex) // 2
+            half = energies[startWindowIndex:midWindowIndex]
+            minEngStart = min(half)
+            offset = half.index(minEngStart)
+            startWindowIndex += offset
+            half = energies[midWindowIndex:stopWindowIndex]
+            minEngStop = min(half)
+            offset = half.index(minEngStop)
+            stopWindowIndex = midWindowIndex + offset + 1
+
+            startFrame = int(startWindowIndex * windowLengthInFrames)
+            stopFrame = int(stopWindowIndex * windowLengthInFrames)
+            # Duration Classification and Third(Edge) Energy Classification
+            if (minLenInFrames < stopFrame - startFrame < maxLenInFrames)\
+                    and minEngStart < startEdgeMaxEnergy and minEngStop < stopEdgeMaxEnergy:
+                breaths.append((startFrame, stopFrame,
+                                zcrs[startWindowIndex:stopWindowIndex],
+                                energies[startWindowIndex:stopWindowIndex]))
         breathing = False
         startWindowIndex = 0
         stopWindowIndex = 0
+
+# print and play
 breathIdx = 1
 for s in breaths:
-    minLenInSeconds = 0.2
-    maxLenInSeconds = 0.5
-    minLenInFrames = int(minLenInSeconds*fs)
-    maxLenInFrames = int(maxLenInSeconds*fs)
-    if minLenInFrames < len(s[0]) < maxLenInFrames:
-        print(breathIdx, len(s[0]), len(s[0])/fs, s[1], s[2])
-        breathIdx = breathIdx + 1
-        sd.play(s[0], fs)
-        time.sleep(len(s[0])/fs)
-        sd.stop()
+    LenInFrames = s[1] - s[0]
+    sig = inputSignal[s[0]:s[1]]
+    plt.figure(figsize=(10, 10))
+    # SIGNAL
+    plt.subplot(2, 2, 1)
+    plt.title('Signal')
+    plt.plot(sig)
+    # ENERGY
+    plt.subplot(2, 2, 2)
+    plt.title('Short Time Energy')
+    plt.plot(s[3])
+    # ZCR
+    plt.subplot(2, 2, 3)
+    plt.title('Zero Crossing Rate')
+    plt.plot(s[2])
+    # File Information and Consideration Parameters
+    plt.subplot(2, 2, 4)
+    plt.title('File Info')
+    plt.axis([0, 10, 0, 10])
+    t = ('Record: ' + filename + ' Breath #' + str(breathIdx) + '\n' +
+         'Time(sec): ' + str(s[0]/fs) + '-' + str(s[1]/fs) + ' (' + str(LenInFrames/fs) + ')\n\n' +
+         'Signal Mean: ' + str(np.mean(sig)) + '\n' +
+         'Signal Max: ' + str(np.max(sig)) + '\n' +
+         'Signal Min: ' + str(np.min(sig)) + '\n' +
+         'Signal Var: ' + str(np.var(sig)) + '\n' +
+         'Signal StDev: ' + str(np.std(sig)) + '\n\n' +
+         'Energy Mean: ' + str(np.mean(s[3])) + '\n' +
+         'Energy Max: ' + str(np.max(s[3])) + '\n' +
+         'Energy Min: ' + str(np.min(s[3])) + '\n' +
+         'Energy Var: ' + str(np.var(s[3])) + '\n' +
+         'Energy StDev: ' + str(np.std(s[3])) + '\n\n' +
+         'ZCR Mean: ' + str(np.mean(s[2])) + '\n' +
+         'ZCR Max: ' + str(np.max(s[2])) + '\n' +
+         'ZCR Min: ' + str(np.min(s[2])) + '\n' +
+         'ZCR Var: ' + str(np.var(s[2])) + '\n' +
+         'ZCR StDev: ' + str(np.std(s[2])) + '\n\n')
+    plt.text(0.5, -0.75, t, wrap=True, fontsize=13)
+    plt.tight_layout()
+    fig = plt.gcf()
+    plt.show()
+    sd.play(sig, fs)
+    time.sleep(LenInFrames/fs)
+    sd.stop()
+    print(str(breathIdx)+'-', s[0]/fs, '-', s[1]/fs, LenInFrames/fs)
+    # for manual classification and waits
+    # classification = input('classify:')
+    # fig.savefig('./plots/breathClassification/'+classification
+    #             + '_'+filename+'_fig'+str(breathIdx)+'.png')
+    breathIdx = breathIdx + 1
+
