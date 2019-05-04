@@ -8,6 +8,7 @@ import python_speech_features
 import os
 import glob
 import pickle
+import sys
 
 '''
 Project Configuration
@@ -464,3 +465,13 @@ def calcInitialClassifications(inputFilePath, templateMatrix, varianceMatrix,
     print('\nInitial Classifications are Done.')
 
     saveData(initialClassifications, resultSavePath)
+
+
+# Disable
+def blockPrint():
+    sys.stdout = open(os.devnull, 'w')
+
+
+# Restore
+def enablePrint():
+    sys.stdout = sys.__stdout__

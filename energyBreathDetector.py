@@ -9,7 +9,7 @@ from datetime import datetime
 
 
 def splitBreaths(path, name, timestamp, verbose):
-    fs, inputSignal = scipy.io.wavfile.read(path+'/'+name)
+    fs, inputAllChannels = scipy.io.wavfile.read(path+'/'+name)
 
     windowLengthInSeconds = 0.001
     minLenInSeconds = 0.2
@@ -21,21 +21,19 @@ def splitBreaths(path, name, timestamp, verbose):
     breathEndMinEnergy = -25
     startEdgeMaxEnergy = -50
     stopEdgeMaxEnergy = -55
-    inputSignal = inputSignal[:, 0]
-    # todo - ai : cut all channels according to first
+    inputFirstChannel = inputAllChannels[:, 0]
 
     windowLengthInFrames = int(fs*windowLengthInSeconds)
     energies = []
     zcrs = []
-    for i in range(0, len(inputSignal), windowLengthInFrames):
-        energies.append(utils.calcShortTimeEnergy(inputSignal[i:i+windowLengthInFrames])[1])
+    for i in range(0, len(inputFirstChannel), windowLengthInFrames):
+        energies.append(utils.calcShortTimeEnergy(inputFirstChannel[i:i+windowLengthInFrames])[1])
         # todo - ai : remove zcr if unnecessary
-        zcrs.append(0)  # utils.calcZeroCrossingRate(inputSignal[i:i+windowLengthInFrames]))
+        zcrs.append(0)  # utils.calcZeroCrossingRate(inputFirstChannel[i:i+windowLengthInFrames]))
 
     breaths = []
     breathing = False
     startWindowIndex = 0
-    stopWindowIndex = 0
     # First(Detect) Energy Classification
     for i in range(len(energies)):
         if energies[i] < breathStartMaxEnergy and breathing is False:
@@ -65,12 +63,12 @@ def splitBreaths(path, name, timestamp, verbose):
                                     energies[startWindowIndex:stopWindowIndex]))
             breathing = False
             startWindowIndex = 0
-            stopWindowIndex = 0
 
     # save, print and play
     breathIdx = 1
     for s in breaths:
-        sig = inputSignal[s[0]:s[1]]
+        sig = inputFirstChannel[s[0]:s[1]]
+        sigAll = inputAllChannels[s[0]:s[1], :]
         LenInFrames = s[1] - s[0]
         if verbose:
             plt.figure(figsize=(10, 10))
@@ -109,30 +107,31 @@ def splitBreaths(path, name, timestamp, verbose):
                  'ZCR StDev: ' + str(np.std(s[2])) + '\n\n')
             plt.text(0.5, -0.75, t, wrap=True, fontsize=13)
             plt.tight_layout()
-            fig = plt.gcf()
+            # hold on to figure for manual classification saving
+            # fig = plt.gcf()
             plt.show()
             sd.play(sig, fs)
             time.sleep(LenInFrames/fs)
             sd.stop()
             print(str(breathIdx)+'-', s[0]/fs, '-', s[1]/fs, LenInFrames/fs)
-            # for manual classification and waits
+            # user input for manual classification and waits
             # classification = input('classify:')
             # fig.savefig('./plots/breathClassification/'+classification
             #             + '_'+filename+'_fig'+str(breathIdx)+'.png')
 
         # save file
         namepieces = name.split('.')
-        savefilename = os.path.dirname(path)+'/breaths_'+timestamp+'/'+namepieces[0]+'_'+str(breathIdx)+'_'+str(s[0]/fs)+'-'+str(LenInFrames/fs)+'.'+namepieces[1]
+        savefilename = os.path.dirname(os.path.dirname(path))+'/breaths_'+timestamp+'/'+namepieces[0]+'_'+str(breathIdx)+'_'+str(s[0]/fs)+'-'+str(LenInFrames/fs)+'.'+namepieces[1]
         if not os.path.exists(os.path.dirname(savefilename)):
             os.makedirs(os.path.dirname(savefilename))
 
         # print(savefilename)
-        scipy.io.wavfile.write(savefilename, fs, sig)
+        scipy.io.wavfile.write(savefilename, fs, sigAll)
 
         breathIdx = breathIdx + 1
 
 
-filepath = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/'
+filepath = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/Recordings/'
 ts = datetime.now().strftime('%Y%m%d_%H%M%S')
 verboseOutput = False
 

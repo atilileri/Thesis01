@@ -5,7 +5,7 @@ Instant Frequency Spectogram Based on HHT
 import pyhht.emd
 import PyEMD
 # import pyeemd
-from utils import readMonoWav
+import utils
 import matplotlib.pyplot as plt
 import scipy.signal as sp
 import os
@@ -52,7 +52,8 @@ if __name__ == '__main__':
     # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_02.26.115-493_breath.wav'
     # filepath = './TED Recordings/BillGates_2009/breath/BillGates_2009_02.39.838-462_breath.wav'
     # filepath = './METU Recordings/Dataset/BurcakYildirim/by01_01.12.305-408.wav'
-    filepath = './METU Recordings/Dataset/DemirSiginan/ds01_01.12.708-419.wav'
+    # filepath = './METU Recordings/Dataset/DemirSiginan/ds01_01.12.708-419.wav'
+    filepath = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_20190503_033537/ba01_1_1.212-0.201.wav'
 
     # saveFolder += 'density/voiced/'
     # filepath = './TED Recordings/BillGates_2009/voiced/BillGates_2009_00.21.576-326_v.wav'
@@ -74,14 +75,15 @@ if __name__ == '__main__':
     useCenterFrame = False  # Whether to use a centered portion of the signal (requires centerFrameLenBySamples)
     useImfNormalization = True  # Whether to use normalized data on Instant Freq Spectogram
     plotSpec = False
-    plotVect = True
+    plotVect = False
     # Start -  Only useful if plotVect is true
-    colorAsMagnitude = True  # color is used as magnitude or imfNo(alpha can be magnitude)
+    colorAsMagnitude = False  # color is used as magnitude or imfNo(alpha can be magnitude)
     alphaAsMagnitude = False  # Whether to use alpha of rgba as magnitude. Useful if colorAsMagnitude is False
     # End - Only useful if plotVect is true
     plotInstf = False
     plotImfs = False
     plotDensity = False
+    prepareLSTMInputFile = True
 
 
     class EMDSelection(Enum):  # Different EMD algorithms
@@ -94,8 +96,9 @@ if __name__ == '__main__':
     emdSel = EMDSelection.pyHht
 
     # Read File
-    sampRate, sig = readMonoWav(filepath)
+    sampRate, sig = utils.readMonoWav(filepath)
     filename = str(os.path.basename(filepath).rsplit('.', 1)[0])
+    label = filename.split('0')[0]
 
     if useCenterFrame:  # Use only a center window with a spesified length(centerFrameLenBySamples)
         centerFrameLenBySamples = min(int(sampRate * 0.2), len(sig))  # center frame is 200 ms
@@ -215,6 +218,29 @@ if __name__ == '__main__':
     weiDensity = np.sum(weightedDensityAnalysisArea, axis=1)
     avgWeiDensity = np.average(weiDensity)
     print('Density Analysis is done')
+
+    if prepareLSTMInputFile:
+        # Prepare input file for LSTM
+        print('Preparing Input file for:', label)
+        folderpath = os.path.dirname(filepath)
+        foldername = os.path.basename(folderpath).split('_')
+        foldername[0] = 'inputs'
+        dataSaveFolder = os.path.dirname(folderpath)+'/'+'_'.join(foldername)
+        inputFile = []
+        inputFile2 = []
+        swappedInstfArr = np.array(instfArr).swapaxes(0, 1)
+        swappedMagArr = np.array(mags).swapaxes(0, 1)[:-1]
+        print(swappedInstfArr.shape, swappedMagArr.shape)
+        for i in range(len(swappedInstfArr)):
+            inputFile.append({'instantFrequencies': swappedInstfArr[i], 'magnitudes': swappedMagArr[i]})
+            inputFile2.append([swappedInstfArr[i], swappedMagArr[i]])
+        savefilename = dataSaveFolder+'/'+filename+'.inp'
+        if not os.path.exists(os.path.dirname(savefilename)):
+            os.makedirs(os.path.dirname(savefilename))
+        print(np.shape(inputFile))
+        utils.saveData(inputFile, savefilename)
+        utils.saveData(np.array(inputFile2), savefilename+'2')
+        print(filename+'.inp prepared.')
     print('----------------------')
 
     print('plotting...')
