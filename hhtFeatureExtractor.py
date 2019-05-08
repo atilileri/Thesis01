@@ -78,6 +78,10 @@ for rootPath, directories, files in os.walk(folderBreaths):
                 inputFile.append(inputChannel)
                 inputFile2.append(inputChannel2)
 
+            # shape is (channel, sampleCount, 2(instf and mag), imfCount)
+            # Swap axes to (sampleCount, channel, 2, imfCount)
+            inputFile = np.array(inputFile).swapaxes(0, 1)
+            inputFile2 = np.array(inputFile2).swapaxes(0, 1)
             # Prepare input file for LSTM
             folderpath = os.path.dirname(filepath)
             foldername = os.path.basename(folderpath).replace('breaths', 'inputsFrom')
@@ -87,5 +91,5 @@ for rootPath, directories, files in os.walk(folderBreaths):
                 os.makedirs(os.path.dirname(savefilename))
             # print(np.shape(inputFile))
             utils.saveData(inputFile, savefilename)
-            utils.saveData(np.array(inputFile2), savefilename + '2')
-            print('Prepared:' + savefilename)
+            utils.saveData(inputFile2, savefilename + '2')
+            print('Prepared: ' + savefilename)
