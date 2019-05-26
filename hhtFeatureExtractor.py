@@ -9,7 +9,8 @@ import pyhht.emd
 import numpy as np
 import utils
 
-folderBreaths = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_mini_sample_set/'
+# folderBreaths = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_mini_sample_set/'
+folderBreaths = 'E:/atil/Processed/breaths_20190504_181608/'
 numberOfImfs = 9
 
 for rootPath, directories, files in os.walk(folderBreaths):
@@ -20,7 +21,7 @@ for rootPath, directories, files in os.walk(folderBreaths):
             samplingRate, audioData = scipy.io.wavfile.read(filepath)
             audioData = np.swapaxes(audioData, 0, 1)
 
-            inputFile = []
+            # inputFile = []
             inputFile2 = []
             for eachChannel in audioData:
                 utils.blockPrint()  # block unwanted prints from emd implementation
@@ -67,20 +68,20 @@ for rootPath, directories, files in os.walk(folderBreaths):
                     tempInstf = (samplingRate / (2 * np.pi)) * diff
                     instfs.append(tempInstf)
 
-                inputChannel = []
+                # inputChannel = []
                 inputChannel2 = []
                 swappedInstfArr = np.array(instfs).swapaxes(0, 1)
                 swappedMagArr = np.array(mags).swapaxes(0, 1)[:-1]
                 # print(swappedInstfArr.shape, swappedMagArr.shape)
                 for i in range(len(swappedInstfArr)):
-                    inputChannel.append({'instantFrequencies': swappedInstfArr[i], 'magnitudes': swappedMagArr[i]})
+                    # inputChannel.append({'instantFrequencies': swappedInstfArr[i], 'magnitudes': swappedMagArr[i]})
                     inputChannel2.append([swappedInstfArr[i], swappedMagArr[i]])
-                inputFile.append(inputChannel)
+                # inputFile.append(inputChannel)
                 inputFile2.append(inputChannel2)
 
             # shape is (channel, sampleCount, 2(instf and mag), imfCount)
             # Swap axes to (sampleCount, channel, 2, imfCount)
-            inputFile = np.array(inputFile).swapaxes(0, 1)
+            # inputFile = np.array(inputFile).swapaxes(0, 1)
             inputFile2 = np.array(inputFile2).swapaxes(0, 1)
             # Prepare input file for LSTM
             folderpath = os.path.dirname(filepath)
@@ -90,6 +91,6 @@ for rootPath, directories, files in os.walk(folderBreaths):
             if not os.path.exists(os.path.dirname(savefilename)):
                 os.makedirs(os.path.dirname(savefilename))
             # print(np.shape(inputFile))
-            utils.saveData(inputFile, savefilename)
+            # utils.saveData(inputFile, savefilename)
             utils.saveData(inputFile2, savefilename + '2')
-            print('Prepared: ' + savefilename)
+            print('Prepared: ' + savefilename + '2')
