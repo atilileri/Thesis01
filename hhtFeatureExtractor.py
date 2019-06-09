@@ -10,11 +10,11 @@ import numpy as np
 import utils
 
 # folderBreaths = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_mini_sample_set/'
-folderBreaths = 'E:/atil/Processed/breaths_20190504_181608/'
+folderBreaths = 'E:/atil/BreathDataset/Processed_Small/breaths_20190608_143805/'
 numberOfImfs = 9
 
 for rootPath, directories, files in os.walk(folderBreaths):
-    for filename in files:
+    for filename in sorted(files):
         if '.wav' in filename:
             print('Extracting Features of:', filename, '\t\t @', rootPath)
             filepath = rootPath + filename
@@ -92,5 +92,11 @@ for rootPath, directories, files in os.walk(folderBreaths):
                 os.makedirs(os.path.dirname(savefilename))
             # print(np.shape(inputFile))
             # utils.saveData(inputFile, savefilename)
-            utils.saveData(inputFile2, savefilename + '2')
-            print('Prepared: ' + savefilename + '2')
+            inputShape = np.shape(inputFile2)
+            if inputShape[1:] == (4, 2, 9):  # todo - ai : fix all files, extract again
+                utils.saveData(inputFile2, savefilename + '2')
+                print('Prepared: ' + savefilename + '2')
+            else:
+                print('')
+                print('--------------Broken: ' + savefilename + '2', inputShape)
+                print('')

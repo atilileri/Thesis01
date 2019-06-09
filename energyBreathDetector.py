@@ -19,8 +19,6 @@ def splitBreaths(path, name, timestamp, verbose):
 
     breathStartMaxEnergy = -40
     breathEndMinEnergy = -25
-    startEdgeMaxEnergy = -50
-    stopEdgeMaxEnergy = -55
     inputFirstChannel = inputAllChannels[:, 0]
 
     windowLengthInFrames = int(fs*windowLengthInSeconds)
@@ -56,8 +54,7 @@ def splitBreaths(path, name, timestamp, verbose):
                 startFrame = int(startWindowIndex * windowLengthInFrames)
                 stopFrame = int(stopWindowIndex * windowLengthInFrames)
                 # Duration Classification and Third(Edge) Energy Classification
-                if (minLenInFrames < stopFrame - startFrame < maxLenInFrames)\
-                        and minEngStart < startEdgeMaxEnergy and minEngStop < stopEdgeMaxEnergy:
+                if minLenInFrames < (stopFrame - startFrame) < maxLenInFrames:
                     breaths.append((startFrame, stopFrame,
                                     zcrs[startWindowIndex:stopWindowIndex],
                                     energies[startWindowIndex:stopWindowIndex]))
@@ -131,7 +128,7 @@ def splitBreaths(path, name, timestamp, verbose):
         breathIdx = breathIdx + 1
 
 
-filepath = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/Recordings/'
+filepath = 'E:/atil/BreathDataset/Recordings_Small/'
 ts = datetime.now().strftime('%Y%m%d_%H%M%S')
 verboseOutput = False
 
