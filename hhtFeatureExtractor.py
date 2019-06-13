@@ -10,7 +10,7 @@ import numpy as np
 import utils
 
 # folderBreaths = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_mini_sample_set/'
-folderBreaths = 'E:/atil/BreathDataset/Processed_Small/breaths_20190608_143805/'
+folderBreaths = 'E:/atil/BreathDataset/Processed_Small2/breaths_20190612_010000/'
 numberOfImfs = 9
 
 for rootPath, directories, files in os.walk(folderBreaths):
