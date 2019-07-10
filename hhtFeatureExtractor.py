@@ -10,19 +10,23 @@ import numpy as np
 import utils
 
 # folderBreaths = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_mini_sample_set/'
-folderBreaths = 'E:/atil/BreathDataset/Processed_Small2/breaths_20190612_010000/'
+# folderBreaths = 'E:/atil/BreathDataset/Processed_Small/breaths_00000000_000000/'
+folderBreaths = 'E:/atil/BreathDataset/Processed_Small/breaths_20190608_143805/'
 numberOfImfs = 9
+
+print('Extracting Features at: %s' % folderBreaths)
 
 for rootPath, directories, files in os.walk(folderBreaths):
     for filename in sorted(files):
         if '.wav' in filename:
-            print('Extracting Features of:', filename, '\t\t @', rootPath)
+            print()
+            print('Extracting Features of %s ...' % filename)
             filepath = rootPath + filename
             samplingRate, audioData = scipy.io.wavfile.read(filepath)
             audioData = np.swapaxes(audioData, 0, 1)
 
-            # inputFile = []
-            inputFile2 = []
+            spectos = []
+            imfFeatures = []
             for eachChannel in audioData:
                 utils.blockPrint()  # block unwanted prints from emd implementation
                 # detail params: threshold_1=0.000001, threshold_2=0.00001
@@ -34,69 +38,93 @@ for rootPath, directories, files in os.walk(folderBreaths):
 
                 # Calculate Magnitudes from IMFs(before normalization)
                 mags = []
+                instfs = []
+                phases = []
                 for imf in imfs:
                     hx = sp.hilbert(imf)
+                    # magnitude
                     mag = np.abs(hx)  # magnitudes are obtained before normalization
                     mags.append(mag)
-
-                instfs = []
-                # Normalization according to:
-                # http://www.ancad.com.tw/newsletter/test
-                # /On%20instantaneous%20frequency%20calculation%20o/On%20instantaneous%20frequency%20calculation%20o.htm
-                for imfEach in imfs:
-                    # get a copy for normalization
-                    normalized = imfEach.copy()
-                    envelope = normalized  # pseudo envelope for while-loop entrance
-                    while len(set(envelope)) > 1:  # loop until envelope is all the same
-                        # 1. Take absolute value of IMF.
-                        absImf = np.abs(normalized)
-                        # 2. Find extrema.
-                        peaks, _ = sp.find_peaks(absImf, height=0)  # peaks over 0
-                        # 2.fix. Add first and last indexes for envelope calculations
-                        peaks = np.concatenate(([0], peaks, [len(absImf) - 1]))
-                        # 3. Based on these extrema, construct envelope.
-                        envelope = np.interp(range(len(absImf)), peaks, absImf[peaks])
-                        # 4. Normalize IMF using the envelope. The FM part of signal becomes almost equal amplitude.
-                        normalized = np.divide(normalized, envelope)
-                        # 5. Repeat process 2-4 after the amplitude of normalized IMF retains
-                        # a straight line with identical value.
-
-                    # Calculate Instant Frequencies from normalized IMFs
-                    hx = sp.hilbert(normalized)
+                    # phase
                     phx = np.unwrap(np.arctan2(hx.imag, hx.real))
+                    phases.append(phx)
+                    # instant frequency
                     diff = np.diff(phx)
                     tempInstf = (samplingRate / (2 * np.pi)) * diff
                     instfs.append(tempInstf)
 
-                # inputChannel = []
-                inputChannel2 = []
-                swappedInstfArr = np.array(instfs).swapaxes(0, 1)
-                swappedMagArr = np.array(mags).swapaxes(0, 1)[:-1]
-                # print(swappedInstfArr.shape, swappedMagArr.shape)
-                for i in range(len(swappedInstfArr)):
-                    # inputChannel.append({'instantFrequencies': swappedInstfArr[i], 'magnitudes': swappedMagArr[i]})
-                    inputChannel2.append([swappedInstfArr[i], swappedMagArr[i]])
-                # inputFile.append(inputChannel)
-                inputFile2.append(inputChannel2)
+                # uncomment for normalization
+                # # Normalization according to:
+                # # http://www.ancad.com.tw/newsletter/test
+                # # /On%20instantaneous%20frequency%20calculation%20o
+                # # /On%20instantaneous%20frequency%20calculation%20o.htm
+                # for imfEach in imfs:
+                #     # get a copy for normalization
+                #     normalized = imfEach.copy()
+                #     envelope = normalized  # pseudo envelope for while-loop entrance
+                #     while len(set(envelope)) > 1:  # loop until envelope is all the same
+                #         # 1. Take absolute value of IMF.
+                #         absImf = np.abs(normalized)
+                #         # 2. Find extrema.
+                #         peaks, _ = sp.find_peaks(absImf, height=0)  # peaks over 0
+                #         # 2.fix. Add first and last indexes for envelope calculations
+                #         peaks = np.concatenate(([0], peaks, [len(absImf) - 1]))
+                #         # 3. Based on these extrema, construct envelope.
+                #         envelope = np.interp(range(len(absImf)), peaks, absImf[peaks])
+                #         # 4. Normalize IMF using the envelope. The FM part of signal becomes almost equal amplitude.
+                #         normalized = np.divide(normalized, envelope)
+                #         # 5. Repeat process 2-4 after the amplitude of normalized IMF retains
+                #         # a straight line with identical value.
+                #
+                #     # Calculate Instant Frequencies from normalized IMFs
+                #     hx = sp.hilbert(normalized)
+                #     phx = np.unwrap(np.arctan2(hx.imag, hx.real))
+                #     diff = np.diff(phx)
+                #     tempInstf = (samplingRate / (2 * np.pi)) * diff
+                #     phases.append(phx)
+                #     instfs.append(tempInstf)
 
-            # shape is (channel, sampleCount, 2(instf and mag), imfCount)
-            # Swap axes to (sampleCount, channel, 2, imfCount)
-            # inputFile = np.array(inputFile).swapaxes(0, 1)
-            inputFile2 = np.array(inputFile2).swapaxes(0, 1)
+                inputChannel = []
+                instfs = np.array(instfs).swapaxes(0, 1)
+                mags = np.array(mags).swapaxes(0, 1)[:-1]
+                phases = np.array(phases).swapaxes(0, 1)[:-1]
+                # print(instfs.shape, mags.shape, phases.shape)
+                for i in range(len(instfs)):
+                    inputChannel.append([instfs[i], mags[i], phases[i]])
+                imfFeatures.append(inputChannel)
+
+                # spectogram
+                f, t, z = sp.stft(eachChannel, fs=48000)
+                specto = np.abs(z)
+                specto = np.array(specto).swapaxes(0, 1)
+                # print(specto.shape)
+                spectos.append(specto)
+
+            # shape is (channel, sampleCount, 3(instf, mag and phase), imfCount)
+            # Swap axes to (sampleCount, channel, 3, imfCount)
+            imfFeatures = np.array(imfFeatures).swapaxes(0, 1)
+            spectos = np.array(spectos).swapaxes(0, 1)
             # Prepare input file for LSTM
             folderpath = os.path.dirname(filepath)
             foldername = os.path.basename(folderpath).replace('breaths', 'inputsFrom')
             dataSaveFolder = os.path.dirname(folderpath) + '/' + foldername
-            savefilename = dataSaveFolder + '/' + filename.replace('.wav', '.inp')
+            savefilename = dataSaveFolder + '/' + filename.replace('.wav', '.imfFeat')
+            # create folder if not existed
             if not os.path.exists(os.path.dirname(savefilename)):
                 os.makedirs(os.path.dirname(savefilename))
-            # print(np.shape(inputFile))
-            # utils.saveData(inputFile, savefilename)
-            inputShape = np.shape(inputFile2)
-            if inputShape[1:] == (4, 2, 9):  # todo - ai : fix all files, extract again
-                utils.saveData(inputFile2, savefilename + '2')
-                print('Prepared: ' + savefilename + '2')
+
+            inputShape = np.shape(imfFeatures)
+            # print(inputShape)
+            if inputShape[1:] == (4, 3, 9):
+                utils.saveData(imfFeatures, savefilename)
+                print('Prepared: ' + savefilename, inputShape)
             else:
                 print('')
-                print('--------------Broken: ' + savefilename + '2', inputShape)
+                print('--------------Broken: ' + savefilename, inputShape)
                 print('')
+
+            inputShape = np.shape(spectos)
+            # print(inputShape)
+            savefilename = dataSaveFolder + '/' + filename.replace('.wav', '.specto')
+            utils.saveData(spectos, savefilename)
+            print('Prepared: ' + savefilename, inputShape)
