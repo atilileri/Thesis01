@@ -9,9 +9,9 @@ import pyhht.emd
 import numpy as np
 import utils
 
-# folderBreaths = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_mini_sample_set/'
-# folderBreaths = 'E:/atil/BreathDataset/Processed_Small/breaths_00000000_000000/'
-folderBreaths = 'E:/atil/BreathDataset/Processed_Small/breaths_20190608_143805/'
+folderBreaths = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_mini_sample_set/'
+# folderBreaths = 'E:/atili/Datasets/BreathDataset/Processed_Small/breaths_00000000_000000/'
+# folderBreaths = 'E:/atili/Datasets/BreathDataset/Processed_Small/breaths_20190608_143805/'
 numberOfImfs = 9
 
 print('Extracting Features at: %s' % folderBreaths)

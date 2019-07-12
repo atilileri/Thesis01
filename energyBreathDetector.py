@@ -128,7 +128,7 @@ def splitBreaths(path, name, timestamp, verbose):
         breathIdx = breathIdx + 1
 
 
-filepath = 'E:/atil/BreathDataset/Recordings_Small/'
+filepath = 'E:/atili/Datasets/BreathDataset/Recordings_Small/'
 ts = datetime.now().strftime('%Y%m%d_%H%M%S')
 verboseOutput = False
 
