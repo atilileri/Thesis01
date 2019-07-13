@@ -127,15 +127,16 @@ for rootPath, directories, files in os.walk(folderBreaths):
             inputShape = np.shape(imfFeatures)
             # print(inputShape)
             if inputShape[1:] == (4, 6, 9):
+                # save imf feature input file
                 utils.saveData(imfFeatures, savefilename)
+                print('Prepared: ' + savefilename, inputShape)
+                # save spectogram input file
+                inputShape = np.shape(spectos)
+                # print(inputShape)
+                savefilename = dataSaveFolder + '/' + filename.replace('.wav', '.specto')
+                utils.saveData(spectos, savefilename)
                 print('Prepared: ' + savefilename, inputShape)
             else:
                 print('')
                 print('--------------Broken: ' + savefilename, inputShape)
                 print('')
-
-            inputShape = np.shape(spectos)
-            # print(inputShape)
-            savefilename = dataSaveFolder + '/' + filename.replace('.wav', '.specto')
-            utils.saveData(spectos, savefilename)
-            print('Prepared: ' + savefilename, inputShape)
