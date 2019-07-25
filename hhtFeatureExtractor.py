@@ -8,11 +8,24 @@ import scipy.signal as sp
 import pyhht.emd
 import numpy as np
 import utils
+import gc
+import sys
 
 folderBreaths = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_mini_sample_set/'
 # folderBreaths = 'E:/atili/Datasets/BreathDataset/Processed_Small/breaths_00000000_000000/'
 # folderBreaths = 'E:/atili/Datasets/BreathDataset/Processed_Small/breaths_20190608_143805/'
-numberOfImfs = 9
+
+sampRateMode = 48
+
+if 48 == sampRateMode:
+    numberOfImfs = 9
+    srDivider = 1
+elif 8 == sampRateMode:
+    numberOfImfs = 7
+    srDivider = 6
+else:
+    print('Invalid Sampling Rate Mode:', sampRateMode)
+    sys.exit()
 
 print('Extracting Features at: %s' % folderBreaths)
 
@@ -23,6 +36,10 @@ for rootPath, directories, files in os.walk(folderBreaths):
             print('Extracting Features of %s ...' % filename)
             filepath = rootPath + filename
             samplingRate, audioData = scipy.io.wavfile.read(filepath)
+            if srDivider > 1:
+                samplingRate /= srDivider
+                audioData = audioData[::srDivider]
+            gc.collect()
             audioData = np.swapaxes(audioData, 0, 1)
 
             spectos = []
@@ -105,7 +122,7 @@ for rootPath, directories, files in os.walk(folderBreaths):
                 imfFeatures.append(inputChannel)
 
                 # spectogram
-                f, t, z = sp.stft(eachChannel, fs=48000)
+                f, scriptStartDateTime, z = sp.stft(eachChannel, fs=48000)
                 specto = np.abs(z)
                 specto = np.array(specto).swapaxes(0, 1)
                 # print(specto.shape)
@@ -119,23 +136,38 @@ for rootPath, directories, files in os.walk(folderBreaths):
             folderpath = os.path.dirname(filepath)
             foldername = os.path.basename(folderpath).replace('breaths', 'inputsFrom')
             dataSaveFolder = os.path.dirname(folderpath) + '/' + foldername
-            savefilename = dataSaveFolder + '/' + filename.replace('.wav', '.imfFeat')
+
+            imfFileExt = '.imfFeat'
+            if 48 == sampRateMode:
+                pass
+            elif 8 == sampRateMode:
+                imfFileExt = imfFileExt + '8khz'
+            else:
+                print('Invalid Sampling Rate Mode:', sampRateMode)
+                sys.exit()
+            savefilename = dataSaveFolder + '/' + filename.replace('.wav', imfFileExt)
             # create folder if not existed
             if not os.path.exists(os.path.dirname(savefilename)):
                 os.makedirs(os.path.dirname(savefilename))
 
             inputShape = np.shape(imfFeatures)
             # print(inputShape)
-            if inputShape[1:] == (4, 6, 9):
+            if inputShape[1:] == (4, 6, numberOfImfs):
                 # save imf feature input file
                 utils.saveData(imfFeatures, savefilename)
                 print('Prepared: ' + savefilename, inputShape)
-                # save spectogram input file
-                inputShape = np.shape(spectos)
-                # print(inputShape)
-                savefilename = dataSaveFolder + '/' + filename.replace('.wav', '.specto')
-                utils.saveData(spectos, savefilename)
-                print('Prepared: ' + savefilename, inputShape)
+                if 48 == sampRateMode:
+                    # save spectogram input file
+                    inputShape = np.shape(spectos)
+                    # print(inputShape)
+                    savefilename = dataSaveFolder + '/' + filename.replace('.wav', '.specto')
+                    utils.saveData(spectos, savefilename)
+                    print('Prepared: ' + savefilename, inputShape)
+                elif 8 == sampRateMode:
+                    pass
+                else:
+                    print('Invalid Sampling Rate Mode:', sampRateMode)
+                    sys.exit()
             else:
                 print('')
                 print('--------------Broken: ' + savefilename, inputShape)
