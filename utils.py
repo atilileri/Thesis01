@@ -9,6 +9,7 @@ import os
 import glob
 import pickle
 import sys
+from statsmodels.tsa.stattools import adfuller
 
 '''
 Project Configuration
@@ -479,22 +480,24 @@ def enablePrint():
 
 # checks whether or not the given signal X is stationary
 def isStationary(sigX):
-    from statsmodels.tsa.stattools import adfuller
     # sigX = range(1000)
     adf, pVal, _, _, crit, _ = adfuller(sigX)
-    print('ADF Statistic: %f' % adf)
-    print('p-value: %f' % pVal)
-    print('Critical Values:')
-    for key, value in crit.items():
-        print('\t%s: %.3f' % (key, value))
-
     if pVal > adf:  # non-stationary
         print('Non-', end='')
-    print('stationary')
+    print('stationary. ', end='')
+    print('ADF Stat: %f p-value: %f critVals: [' % (adf, pVal), end='')
+    for key, value in crit.items():
+        print(' %s: %.3f,' % (key, value), end='')
 
     split = len(sigX) // 2
     X1, X2 = sigX[0:split], sigX[split:]
-    mean1, mean2 = np.mean(X1), np.mean(X2)
-    var1, var2 = np.var(X1), np.var(X2)
-    print('mean1=%f, mean2=%f' % (mean1, mean2))
+    mean1, mean2 = float(np.mean(X1)), float(np.mean(X2))
+    var1, var2 = float(np.var(X1)), float(np.var(X2))
+    print('] mean1=%f, mean2=%f, ' % (mean1, mean2), end='')
     print('variance1=%f, variance2=%f' % (var1, var2))
+
+    if pVal > adf:  # non-stationary
+        return False
+    else:
+        return True
+
