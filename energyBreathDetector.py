@@ -198,9 +198,8 @@ def splitBreaths(path, name, timestamp, verboseSignal, verboseEnergy, playAudio,
                 for chIdx in range(len(dataInfo)):
                     print('Playing Channel '+str(chIdx+1))
                     sd.play(dataInfo[chIdx]['audioSamples']
-                            [breathSections[sectionIdx]['startSample']:breathSections[sectionIdx]['stopSample']])
-                    time.sleep((breathSections[sectionIdx]['stopSample']-breathSections[sectionIdx]['startSample'])/fs)
-                    sd.stop()
+                            [breathSections[sectionIdx]['startSample']:breathSections[sectionIdx]['stopSample']],
+                            samplerate=48000, blocking=True)
         if saveFiles:
             # save file
             fileSavePath = os.path.dirname(os.path.dirname(path)) + '/breaths_'+timestamp+'/'
