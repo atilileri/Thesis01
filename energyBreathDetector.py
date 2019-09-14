@@ -1,5 +1,6 @@
 import utils
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import scipy.io.wavfile
 import sounddevice as sd
 import time
@@ -8,132 +9,232 @@ import os
 from datetime import datetime
 
 
-def splitBreaths(path, name, timestamp, verbose):
+def splitBreaths(path, name, timestamp, verboseSignal, verboseEnergy, playAudio, savePlots, saveFiles):
     fs, inputAllChannels = scipy.io.wavfile.read(path+'/'+name)
 
-    windowLengthInSeconds = 0.001
+    windowLengthInSeconds = 0.00050
+    windowLengthInSamples = int(fs*windowLengthInSeconds)
+    speedOfSoundPerSecond = 346.13  # temperature: 25 degree-celcius
+    delay1_5mInSeconds = 1.5/speedOfSoundPerSecond
+    delay1_5mInSamples = int(delay1_5mInSeconds * fs)
+    delay1_5mInWindows = int(np.ceil(delay1_5mInSamples / windowLengthInSamples))
+    delay1_5mInSamples = delay1_5mInWindows * windowLengthInSamples  # equalize with window length
+
     minLenInSeconds = 0.2
     maxLenInSeconds = 1.0
-    minLenInFrames = int(minLenInSeconds * fs)
-    maxLenInFrames = int(maxLenInSeconds * fs)
+    minLenInSamples = int(minLenInSeconds * fs)
+    maxLenInSamples = int(maxLenInSeconds * fs)
 
     breathStartMaxEnergy = -40
     breathEndMinEnergy = -25
-    inputFirstChannel = inputAllChannels[:, 0]
+    inputAllChannels = np.swapaxes(inputAllChannels, 0, 1)
 
-    windowLengthInFrames = int(fs*windowLengthInSeconds)
-    energies = []
-    zcrs = []
-    for i in range(0, len(inputFirstChannel), windowLengthInFrames):
-        energies.append(utils.calcShortTimeEnergy(inputFirstChannel[i:i+windowLengthInFrames])[1])
-        # todo - ai : remove zcr if unnecessary
-        zcrs.append(0)  # utils.calcZeroCrossingRate(inputFirstChannel[i:i+windowLengthInFrames]))
+    dataInfo = []
+    breathSections = []
+    channelInfo = dict()
+    # calculate parameters
+    print('Calculating energies for windows...')
+    for chIdx in range(len(inputAllChannels)):
+        channelInfo['audioSamples'] = inputAllChannels[chIdx]
+        channelInfo['energyOfWindows'] = list()
+        for windowStartSampleIdx in range(0, len(channelInfo['audioSamples']), windowLengthInSamples):
+            channelInfo['energyOfWindows'].append(utils.calcShortTimeEnergy(
+                channelInfo['audioSamples'][windowStartSampleIdx:windowStartSampleIdx+windowLengthInSamples])[1])
+            # channelInfo['energies'].append(utils.calcZeroCrossingRate(
+            #     channelInfo['audio'][windowStartSampleIdx:windowStartSampleIdx+windowLengthInSamples]))
+        dataInfo.append(channelInfo.copy())
+        channelInfo.clear()
+    del channelInfo
 
-    breaths = []
+    print('Applying classifications...')
     breathing = False
     startWindowIndex = 0
     # First(Detect) Energy Classification
-    for i in range(len(energies)):
-        if energies[i] < breathStartMaxEnergy and breathing is False:
-            startWindowIndex = i
+    breathSectionInfo = dict()
+    for windowIdx in range(len(dataInfo[0]['energyOfWindows'])):
+        if dataInfo[0]['energyOfWindows'][windowIdx] < breathStartMaxEnergy and breathing is False:
+            startWindowIndex = windowIdx
             breathing = True
-        elif energies[i] > breathEndMinEnergy and breathing is True:
-            stopWindowIndex = i
+        elif dataInfo[0]['energyOfWindows'][windowIdx] > breathEndMinEnergy and breathing is True:
+            stopWindowIndex = windowIdx
             # Second(Trim) Energy Classification
             if stopWindowIndex - startWindowIndex > 10:  # pseudo minimum for too short windows
+                startWindowIndexBeforeTrim = startWindowIndex
+                stopWindowIndexBeforeTrim = stopWindowIndex
                 midWindowIndex = (startWindowIndex + stopWindowIndex) // 2
-                half = energies[startWindowIndex:midWindowIndex]
+                half = dataInfo[0]['energyOfWindows'][startWindowIndex:midWindowIndex]
                 minEngStart = min(half)
                 offset = half.index(minEngStart)
                 startWindowIndex += offset
-                half = energies[midWindowIndex:stopWindowIndex]
+                half = dataInfo[0]['energyOfWindows'][midWindowIndex:stopWindowIndex]
                 minEngStop = min(half)
                 offset = half.index(minEngStop)
                 stopWindowIndex = midWindowIndex + offset + 1
 
-                startFrame = int(startWindowIndex * windowLengthInFrames)
-                stopFrame = int(stopWindowIndex * windowLengthInFrames)
+                startSample = int(startWindowIndex * windowLengthInSamples)
+                startSampleBT = int(startWindowIndexBeforeTrim * windowLengthInSamples)
+                stopSample = int(stopWindowIndex * windowLengthInSamples)
+                stopSampleBT = int(stopWindowIndexBeforeTrim * windowLengthInSamples)
                 # Duration Classification and Third(Edge) Energy Classification
-                if minLenInFrames < (stopFrame - startFrame) < maxLenInFrames:
-                    breaths.append((startFrame, stopFrame,
-                                    zcrs[startWindowIndex:stopWindowIndex],
-                                    energies[startWindowIndex:stopWindowIndex]))
+                if minLenInSamples < (stopSample - startSample) < maxLenInSamples:
+                    breathSectionInfo['startSample'] = startSample
+                    breathSectionInfo['stopSample'] = stopSample
+                    breathSectionInfo['startSampleBT'] = startSampleBT
+                    breathSectionInfo['stopSampleBT'] = stopSampleBT
+                    breathSectionInfo['startWindow'] = startWindowIndex
+                    breathSectionInfo['stopWindow'] = stopWindowIndex
+                    breathSectionInfo['startWindowBT'] = startWindowIndexBeforeTrim
+                    breathSectionInfo['stopWindowBT'] = stopWindowIndexBeforeTrim
+                    breathSections.append(breathSectionInfo.copy())
+                    breathSectionInfo.clear()
             breathing = False
             startWindowIndex = 0
+    del breathSectionInfo
 
     # save, print and play
-    breathIdx = 1
-    for s in breaths:
-        sig = inputFirstChannel[s[0]:s[1]]
-        sigAll = inputAllChannels[s[0]:s[1], :]
-        LenInFrames = s[1] - s[0]
-        if verbose:
+    plotSavePath = './plots/' + timestamp + '/'
+
+    for sectionIdx in range(len(breathSections)):
+        namepieces = name.split('.')
+        fileSaveName = (namepieces[0] + '_' + '{:03d}'.format(sectionIdx + 1))
+
+        if verboseSignal:
+            print('Plotting Signal...')
             plt.figure(figsize=(10, 10))
-            # SIGNAL
-            plt.subplot(2, 2, 1)
-            plt.title('Signal')
-            plt.plot(sig)
-            # ENERGY
-            plt.subplot(2, 2, 2)
-            plt.title('Short Time Energy')
-            plt.plot(s[3])
-            # ZCR
-            plt.subplot(2, 2, 3)
-            plt.title('Zero Crossing Rate')
-            plt.plot(s[2])
-            # File Information and Consideration Parameters
-            plt.subplot(2, 2, 4)
-            plt.title('File Info')
-            plt.axis([0, 10, 0, 10])
-            t = ('Record: ' + name + ' Breath #' + str(breathIdx) + '\n' +
-                 'Time(sec): ' + str(s[0]/fs) + '-' + str(s[1]/fs) + ' (' + str(LenInFrames/fs) + ')\n\n' +
-                 'Signal Mean: ' + str(np.mean(sig)) + '\n' +
-                 'Signal Max: ' + str(np.max(sig)) + '\n' +
-                 'Signal Min: ' + str(np.min(sig)) + '\n' +
-                 'Signal Var: ' + str(np.var(sig)) + '\n' +
-                 'Signal StDev: ' + str(np.std(sig)) + '\n\n' +
-                 'Energy Mean: ' + str(np.mean(s[3])) + '\n' +
-                 'Energy Max: ' + str(np.max(s[3])) + '\n' +
-                 'Energy Min: ' + str(np.min(s[3])) + '\n' +
-                 'Energy Var: ' + str(np.var(s[3])) + '\n' +
-                 'Energy StDev: ' + str(np.std(s[3])) + '\n\n' +
-                 'ZCR Mean: ' + str(np.mean(s[2])) + '\n' +
-                 'ZCR Max: ' + str(np.max(s[2])) + '\n' +
-                 'ZCR Min: ' + str(np.min(s[2])) + '\n' +
-                 'ZCR Var: ' + str(np.var(s[2])) + '\n' +
-                 'ZCR StDev: ' + str(np.std(s[2])) + '\n\n')
-            plt.text(0.5, -0.75, t, wrap=True, fontsize=13)
+            for chIdx in range(len(dataInfo)):
+                plt.subplot(2, 2, chIdx+1)
+                plt.title('Signal Channel '+str(chIdx+1))
+                plt.plot(dataInfo[chIdx]['audioSamples']
+                         [breathSections[sectionIdx]['startSampleBT']:breathSections[sectionIdx]['stopSampleBT']],
+                         linewidth=0.2)
+                plt.axvline(x=(breathSections[sectionIdx]['startSample'] - breathSections[sectionIdx]['startSampleBT']),
+                            color='red', linestyle='dashed', zorder=5, linewidth=0.2)
+                plt.axvline(x=(breathSections[sectionIdx]['startSample'] - breathSections[sectionIdx]['startSampleBT']
+                               + delay1_5mInSamples*2),
+                            color='green', linestyle='dashed', zorder=5, linewidth=0.2)
+                plt.axvline(x=(breathSections[sectionIdx]['stopSample'] - breathSections[sectionIdx]['startSampleBT']),
+                            color='red', linestyle='dashed', zorder=5, linewidth=0.4)
+            # create legend
+            plt.figlegend(handles=[
+                Line2D([0], [0], color='#1f77b4', label='Audio'),
+                Line2D([0], [0], color='red', linestyle='dashed', label='Trim Lines'),
+                Line2D([0], [0], color='green', linestyle='dashed', label='Delay Window End')
+            ], loc='center')
+
             plt.tight_layout()
             # hold on to figure for manual classification saving
-            # fig = plt.gcf()
+            fig = plt.gcf()
             plt.show()
-            sd.play(sig, fs)
-            time.sleep(LenInFrames/fs)
-            sd.stop()
-            print(str(breathIdx)+'-', s[0]/fs, '-', s[1]/fs, LenInFrames/fs)
-            # user input for manual classification and waits
-            # classification = input('classify:')
-            # fig.savefig('./plots/breathClassification/'+classification
-            #             + '_'+filename+'_fig'+str(breathIdx)+'.png')
+            if savePlots:
+                if not os.path.exists(plotSavePath):
+                    os.makedirs(plotSavePath)
+                fig.savefig(plotSavePath + fileSaveName + '_Signal.png')
+                fig.savefig(plotSavePath + fileSaveName + '_Signal.svg')
 
-        # save file
-        namepieces = name.split('.')
-        savefilename = os.path.dirname(os.path.dirname(path))+'/breaths_'+timestamp+'/'+namepieces[0]+'_'+str(breathIdx)+'_'+str(s[0]/fs)+'-'+str(LenInFrames/fs)+'.'+namepieces[1]
-        if not os.path.exists(os.path.dirname(savefilename)):
-            os.makedirs(os.path.dirname(savefilename))
+        if verboseEnergy:
+            print('Plotting Energies...')
+            plt.figure(figsize=(10, 10))
+            for chIdx in range(len(dataInfo)):
+                # todo - ai : move these lines
+                # calculate offsets for propagation delay
+                if chIdx > 0:
+                    examineSection = (dataInfo[chIdx]['energyOfWindows'][breathSections[sectionIdx]['startWindow']+1:
+                                                                         breathSections[sectionIdx]['startWindow']
+                                                                         + delay1_5mInWindows*2])
+                    minEng = min(examineSection)
+                    offset = examineSection.index(minEng)
+                    offset += 1  # index alignment, since we started from startWindow + 1
+                else:
+                    offset = 0
 
-        # print(savefilename)
-        scipy.io.wavfile.write(savefilename, fs, sigAll)
+                # draw
+                plt.subplot(2, 2, chIdx+1)
+                plt.title('Energy Channel '+str(chIdx+1))
+                # Energy data
+                plt.plot(dataInfo[chIdx]['energyOfWindows']
+                         [breathSections[sectionIdx]['startWindowBT']:breathSections[sectionIdx]['stopWindowBT']],
+                         color='#1f77b4', linewidth=0.2)
+                # trim start line
+                plt.axvline(x=(breathSections[sectionIdx]['startWindow'] - breathSections[sectionIdx]['startWindowBT']),
+                            color='red', linestyle='dashed', zorder=5, linewidth=0.2)
+                # propagation delay point
+                plt.axvline(x=(breathSections[sectionIdx]['startWindow'] - breathSections[sectionIdx]['startWindowBT']
+                               + delay1_5mInWindows*2),
+                            color='green', linestyle='dashed', zorder=5, linewidth=0.2)
+                # propagation delay window end line
+                plt.scatter(x=(breathSections[sectionIdx]['startWindow'] - breathSections[sectionIdx]['startWindowBT']
+                               + offset),
+                            y=(dataInfo[chIdx]['energyOfWindows'][breathSections[sectionIdx]['startWindow']
+                                                                  + offset]),
+                            marker=",", s=0.001, c='red')
+                # trim end line
+                plt.axvline(x=(breathSections[sectionIdx]['stopWindow'] - breathSections[sectionIdx]['startWindowBT']),
+                            color='red', linestyle='dashed', zorder=5, linewidth=0.4)
+            # create legend
+            plt.figlegend(handles=[
+                Line2D([0], [0], color='#1f77b4', label='Energy'),
+                Line2D([0], [0], color='red', linestyle='dashed', label='Trim Lines'),
+                Line2D([0], [0], color='green', linestyle='dashed', label='Delay Window End'),
+                Line2D([0], [0], color='red', linestyle='None', marker='o', markersize=5, label='Delay Point')
+            ], loc='center')
 
-        breathIdx = breathIdx + 1
+            plt.tight_layout()
+            # hold on to figure for manual classification saving
+            fig = plt.gcf()
+            plt.show()
+            if savePlots:
+                if not os.path.exists(plotSavePath):
+                    os.makedirs(plotSavePath)
+                fig.savefig(plotSavePath + fileSaveName + '_Energy.png')
+                fig.savefig(plotSavePath + fileSaveName + '_Energy.svg')
+
+        if playAudio:
+            while 'p' == input('Press p to play, ENTER to skip:'):
+                print('Breath #' + str(sectionIdx+1) + ':',
+                      breathSections[sectionIdx]['startSample'] / fs, '-',
+                      breathSections[sectionIdx]['stopSample'] / fs,
+                      (breathSections[sectionIdx]['stopSample'] - breathSections[sectionIdx]['startSample']) / fs,
+                      'Playing Audio...')
+                for chIdx in range(len(dataInfo)):
+                    print('Playing Channel '+str(chIdx+1))
+                    sd.play(dataInfo[chIdx]['audioSamples']
+                            [breathSections[sectionIdx]['startSample']:breathSections[sectionIdx]['stopSample']])
+                    time.sleep((breathSections[sectionIdx]['stopSample']-breathSections[sectionIdx]['startSample'])/fs)
+                    sd.stop()
+        if saveFiles:
+            # save file
+            fileSavePath = os.path.dirname(os.path.dirname(path)) + '/breaths_'+timestamp+'/'
+            fileSaveName += ('_' + '{:08.4f}'.format(breathSections[sectionIdx]['startSample'] / fs) + '-'
+                             + '{:06.4f}'.format((breathSections[sectionIdx]['stopSample'] -
+                                                  breathSections[sectionIdx]['startSample']) / fs)
+                             + '.'+namepieces[-1])  # adding wav extension
+            if not os.path.exists(fileSavePath):
+                os.makedirs(fileSavePath)
+
+            print('Saving: '+fileSaveName+' to '+fileSavePath, flush=True)
+            saveData = list()
+            for chanelData in dataInfo:
+                saveData.append(chanelData['audioSamples']
+                                [breathSections[sectionIdx]['startSample']: breathSections[sectionIdx]['stopSample']])
+            # restore channel index order
+            saveData = np.swapaxes(saveData, 0, 1)
+
+            scipy.io.wavfile.write(fileSavePath+fileSaveName, fs, saveData)
+
+        if verboseEnergy or verboseSignal:
+            input('Continue?:')
 
 
-filepath = 'E:/atili/Datasets/BreathDataset/Recordings_Small/'
+filepath = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/Recordings_Max/aa/'
 ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-verboseOutput = False
 
 for root, directories, files in os.walk(filepath):
     for file in files:
         if '.wav' in file:
             print('Extracting Breaths of:', file, 'at', root)
-            splitBreaths(root, file, ts, verboseOutput)
+            splitBreaths(path=root, name=file, timestamp=ts,
+                         verboseSignal=True,
+                         verboseEnergy=True,
+                         playAudio=False,
+                         savePlots=True,
+                         saveFiles=False)
