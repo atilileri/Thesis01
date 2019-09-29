@@ -34,13 +34,13 @@ def splitBreaths(path, name, timestamp, verboseSignal, verboseEnergy, playAudio,
     channelInfo = dict()
     # calculate parameters
     print('Calculating energies for windows...')
-    for chIdx in range(len(inputAllChannels)):
+    for chIdx in range(len(inputAllChannels)):  # do for first channel only
         channelInfo['audioSamples'] = inputAllChannels[chIdx]
         channelInfo['energyOfWindows'] = list()
         for windowStartSampleIdx in range(0, len(channelInfo['audioSamples']), windowLengthInSamples):
             channelInfo['energyOfWindows'].append(utils.calcShortTimeEnergy(
                 channelInfo['audioSamples'][windowStartSampleIdx:windowStartSampleIdx+windowLengthInSamples])[1])
-            # channelInfo['energies'].append(utils.calcZeroCrossingRate(
+            # channelInfo['zcr'].append(utils.calcZeroCrossingRate(
             #     channelInfo['audio'][windowStartSampleIdx:windowStartSampleIdx+windowLengthInSamples]))
         dataInfo.append(channelInfo.copy())
         channelInfo.clear()
@@ -85,6 +85,7 @@ def splitBreaths(path, name, timestamp, verboseSignal, verboseEnergy, playAudio,
                     breathSectionInfo['stopWindow'] = stopWindowIndex
                     breathSectionInfo['startWindowBT'] = startWindowIndexBeforeTrim
                     breathSectionInfo['stopWindowBT'] = stopWindowIndexBeforeTrim
+                    breathSectionInfo['offsets'] = list()
                     breathSections.append(breathSectionInfo.copy())
                     breathSectionInfo.clear()
             breathing = False
@@ -98,27 +99,43 @@ def splitBreaths(path, name, timestamp, verboseSignal, verboseEnergy, playAudio,
         namepieces = name.split('.')
         fileSaveName = (namepieces[0] + '_' + '{:03d}'.format(sectionIdx + 1))
 
+        for chIdx in range(len(dataInfo)):
+            # calculate offsets for propagation delay (by cross correlation)
+            if chIdx > 0:
+                examineSection = (dataInfo[chIdx]['audioSamples'][breathSections[sectionIdx]['startSample']:
+                                                                  breathSections[sectionIdx]['stopSample']
+                                                                  + delay1_5mInSamples*4])  # max delay
+                breathFound = (dataInfo[0]['audioSamples'][breathSections[sectionIdx]['startSample']:
+                                                           breathSections[sectionIdx]['stopSample']])
+                offset = np.correlate(breathFound, examineSection, 'valid').argmax()
+            else:
+                offset = 0
+            breathSections[sectionIdx]['offsets'].append(offset)
+            # print(offset)
+
         if verboseSignal:
             print('Plotting Signal...')
             plt.figure(figsize=(10, 10))
             for chIdx in range(len(dataInfo)):
+                # draw
                 plt.subplot(2, 2, chIdx+1)
                 plt.title('Signal Channel '+str(chIdx+1))
+                # audio samples
                 plt.plot(dataInfo[chIdx]['audioSamples']
                          [breathSections[sectionIdx]['startSampleBT']:breathSections[sectionIdx]['stopSampleBT']],
-                         linewidth=0.2)
-                plt.axvline(x=(breathSections[sectionIdx]['startSample'] - breathSections[sectionIdx]['startSampleBT']),
-                            color='red', linestyle='dashed', zorder=5, linewidth=0.2)
+                         linewidth=0.4)
+                # trim start line
                 plt.axvline(x=(breathSections[sectionIdx]['startSample'] - breathSections[sectionIdx]['startSampleBT']
-                               + delay1_5mInSamples*2),
-                            color='green', linestyle='dashed', zorder=5, linewidth=0.2)
-                plt.axvline(x=(breathSections[sectionIdx]['stopSample'] - breathSections[sectionIdx]['startSampleBT']),
-                            color='red', linestyle='dashed', zorder=5, linewidth=0.4)
+                               + breathSections[sectionIdx]['offsets'][chIdx]),
+                            color='red', linestyle='dashed', zorder=5, linewidth=0.8)
+                # trim end line
+                plt.axvline(x=(breathSections[sectionIdx]['stopSample'] - breathSections[sectionIdx]['startSampleBT']
+                               + breathSections[sectionIdx]['offsets'][chIdx]),
+                            color='red', linestyle='dashed', zorder=5, linewidth=0.8)
             # create legend
             plt.figlegend(handles=[
                 Line2D([0], [0], color='#1f77b4', label='Audio'),
-                Line2D([0], [0], color='red', linestyle='dashed', label='Trim Lines'),
-                Line2D([0], [0], color='green', linestyle='dashed', label='Delay Window End')
+                Line2D([0], [0], color='red', linestyle='dashed', label='Trim Lines(synced)')
             ], loc='center')
 
             plt.tight_layout()
@@ -135,47 +152,25 @@ def splitBreaths(path, name, timestamp, verboseSignal, verboseEnergy, playAudio,
             print('Plotting Energies...')
             plt.figure(figsize=(10, 10))
             for chIdx in range(len(dataInfo)):
-                # todo - ai : move these lines
-                # calculate offsets for propagation delay
-                if chIdx > 0:
-                    examineSection = (dataInfo[chIdx]['energyOfWindows'][breathSections[sectionIdx]['startWindow']+1:
-                                                                         breathSections[sectionIdx]['startWindow']
-                                                                         + delay1_5mInWindows*2])
-                    minEng = min(examineSection)
-                    offset = examineSection.index(minEng)
-                    offset += 1  # index alignment, since we started from startWindow + 1
-                else:
-                    offset = 0
-
                 # draw
                 plt.subplot(2, 2, chIdx+1)
                 plt.title('Energy Channel '+str(chIdx+1))
                 # Energy data
                 plt.plot(dataInfo[chIdx]['energyOfWindows']
                          [breathSections[sectionIdx]['startWindowBT']:breathSections[sectionIdx]['stopWindowBT']],
-                         color='#1f77b4', linewidth=0.2)
+                         color='#1f77b4', linewidth=0.4)
                 # trim start line
-                plt.axvline(x=(breathSections[sectionIdx]['startWindow'] - breathSections[sectionIdx]['startWindowBT']),
-                            color='red', linestyle='dashed', zorder=5, linewidth=0.2)
-                # propagation delay point
                 plt.axvline(x=(breathSections[sectionIdx]['startWindow'] - breathSections[sectionIdx]['startWindowBT']
-                               + delay1_5mInWindows*2),
-                            color='green', linestyle='dashed', zorder=5, linewidth=0.2)
-                # propagation delay window end line
-                plt.scatter(x=(breathSections[sectionIdx]['startWindow'] - breathSections[sectionIdx]['startWindowBT']
-                               + offset),
-                            y=(dataInfo[chIdx]['energyOfWindows'][breathSections[sectionIdx]['startWindow']
-                                                                  + offset]),
-                            marker=",", s=0.001, c='red')
+                               + np.floor(breathSections[sectionIdx]['offsets'][chIdx] / windowLengthInSamples)),
+                            color='red', linestyle='dashed', zorder=5, linewidth=0.8)
                 # trim end line
-                plt.axvline(x=(breathSections[sectionIdx]['stopWindow'] - breathSections[sectionIdx]['startWindowBT']),
-                            color='red', linestyle='dashed', zorder=5, linewidth=0.4)
+                plt.axvline(x=(breathSections[sectionIdx]['stopWindow'] - breathSections[sectionIdx]['startWindowBT']
+                               + np.ceil(breathSections[sectionIdx]['offsets'][chIdx] / windowLengthInSamples)),
+                            color='red', linestyle='dashed', zorder=5, linewidth=0.8)
             # create legend
             plt.figlegend(handles=[
                 Line2D([0], [0], color='#1f77b4', label='Energy'),
-                Line2D([0], [0], color='red', linestyle='dashed', label='Trim Lines'),
-                Line2D([0], [0], color='green', linestyle='dashed', label='Delay Window End'),
-                Line2D([0], [0], color='red', linestyle='None', marker='o', markersize=5, label='Delay Point')
+                Line2D([0], [0], color='red', linestyle='dashed', label='Trim Lines(synced)')
             ], loc='center')
 
             plt.tight_layout()
@@ -198,7 +193,8 @@ def splitBreaths(path, name, timestamp, verboseSignal, verboseEnergy, playAudio,
                 for chIdx in range(len(dataInfo)):
                     print('Playing Channel '+str(chIdx+1))
                     sd.play(dataInfo[chIdx]['audioSamples']
-                            [breathSections[sectionIdx]['startSample']:breathSections[sectionIdx]['stopSample']],
+                            [breathSections[sectionIdx]['startSample'] + breathSections[sectionIdx]['offsets'][chIdx]
+                             :breathSections[sectionIdx]['stopSample'] + breathSections[sectionIdx]['offsets'][chIdx]],
                             samplerate=48000, blocking=True)
         if saveFiles:
             # save file
@@ -212,9 +208,12 @@ def splitBreaths(path, name, timestamp, verboseSignal, verboseEnergy, playAudio,
 
             print('Saving: '+fileSaveName+' to '+fileSavePath, flush=True)
             saveData = list()
+            ch = 0
             for chanelData in dataInfo:
                 saveData.append(chanelData['audioSamples']
-                                [breathSections[sectionIdx]['startSample']: breathSections[sectionIdx]['stopSample']])
+                                [breathSections[sectionIdx]['startSample'] + breathSections[sectionIdx]['offsets'][ch]:
+                                 breathSections[sectionIdx]['stopSample'] + breathSections[sectionIdx]['offsets'][ch]])
+                ch += 1
             # restore channel index order
             saveData = np.swapaxes(saveData, 0, 1)
 
@@ -224,7 +223,7 @@ def splitBreaths(path, name, timestamp, verboseSignal, verboseEnergy, playAudio,
             input('Continue?:')
 
 
-filepath = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/Recordings_Max/aa/'
+filepath = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/Recordings_Max/eb2'
 ts = datetime.now().strftime('%Y%m%d_%H%M%S')
 
 for root, directories, files in os.walk(filepath):
@@ -232,8 +231,8 @@ for root, directories, files in os.walk(filepath):
         if '.wav' in file:
             print('Extracting Breaths of:', file, 'at', root)
             splitBreaths(path=root, name=file, timestamp=ts,
-                         verboseSignal=True,
-                         verboseEnergy=True,
+                         verboseSignal=False,
+                         verboseEnergy=False,
                          playAudio=False,
-                         savePlots=True,
-                         saveFiles=False)
+                         savePlots=False,
+                         saveFiles=True)
