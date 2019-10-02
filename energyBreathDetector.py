@@ -2,8 +2,8 @@ import utils
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import scipy.io.wavfile
+import scipy.signal
 import sounddevice as sd
-import time
 import numpy as np
 import os
 from datetime import datetime
@@ -14,11 +14,12 @@ def splitBreaths(path, name, timestamp, verboseSignal, verboseEnergy, playAudio,
 
     windowLengthInSeconds = 0.00050
     windowLengthInSamples = int(fs*windowLengthInSeconds)
-    speedOfSoundPerSecond = 346.13  # temperature: 25 degree-celcius
-    delay1_5mInSeconds = 1.5/speedOfSoundPerSecond
-    delay1_5mInSamples = int(delay1_5mInSeconds * fs)
-    delay1_5mInWindows = int(np.ceil(delay1_5mInSamples / windowLengthInSamples))
-    delay1_5mInSamples = delay1_5mInWindows * windowLengthInSamples  # equalize with window length
+    # speedOfSoundPerSecond = 346.13  # temperature: 25 degree-celcius
+    # delay1_5mInSeconds = 1.5/speedOfSoundPerSecond
+    # delay1_5mInSamples = int(delay1_5mInSeconds * fs)
+    # delay1_5mInWindows = int(np.ceil(delay1_5mInSamples / windowLengthInSamples))
+    # delay1_5mInSamples = delay1_5mInWindows * windowLengthInSamples  # equalize with window length
+    # maxDelayInSamples = delay1_5mInSamples * 4
 
     minLenInSeconds = 0.2
     maxLenInSeconds = 1.0
@@ -37,11 +38,13 @@ def splitBreaths(path, name, timestamp, verboseSignal, verboseEnergy, playAudio,
     for chIdx in range(len(inputAllChannels)):  # do for first channel only
         channelInfo['audioSamples'] = inputAllChannels[chIdx]
         channelInfo['energyOfWindows'] = list()
-        for windowStartSampleIdx in range(0, len(channelInfo['audioSamples']), windowLengthInSamples):
-            channelInfo['energyOfWindows'].append(utils.calcShortTimeEnergy(
-                channelInfo['audioSamples'][windowStartSampleIdx:windowStartSampleIdx+windowLengthInSamples])[1])
-            # channelInfo['zcr'].append(utils.calcZeroCrossingRate(
-            #     channelInfo['audio'][windowStartSampleIdx:windowStartSampleIdx+windowLengthInSamples]))
+        if (0 == chIdx) or (verboseEnergy is True):  # do not calculate chnl 2,3,4 if not displayed
+            for windowStartSampleIdx in range(0, len(channelInfo['audioSamples']), windowLengthInSamples):
+                channelInfo['energyOfWindows'].append(utils.calcShortTimeEnergy(
+                    channelInfo['audioSamples'][windowStartSampleIdx:windowStartSampleIdx+windowLengthInSamples])[1])
+                # channelInfo['zcr'].append(utils.calcZeroCrossingRate(
+                #     channelInfo['audio'][windowStartSampleIdx:windowStartSampleIdx+windowLengthInSamples]))
+        # todo - ai : apply filter here to whole signal, instead of below. apply after or before energy calculation?
         dataInfo.append(channelInfo.copy())
         channelInfo.clear()
     del channelInfo
@@ -101,17 +104,35 @@ def splitBreaths(path, name, timestamp, verboseSignal, verboseEnergy, playAudio,
 
         for chIdx in range(len(dataInfo)):
             # calculate offsets for propagation delay (by cross correlation)
-            if chIdx > 0:
-                examineSection = (dataInfo[chIdx]['audioSamples'][breathSections[sectionIdx]['startSample']:
-                                                                  breathSections[sectionIdx]['stopSample']
-                                                                  + delay1_5mInSamples*4])  # max delay
-                breathFound = (dataInfo[0]['audioSamples'][breathSections[sectionIdx]['startSample']:
-                                                           breathSections[sectionIdx]['stopSample']])
-                offset = np.correlate(breathFound, examineSection, 'valid').argmax()
-            else:
-                offset = 0
+            # todo - ai : 50-55 hz altini at.
+            h = scipy.signal.firwin(numtaps=1025, cutoff=65, pass_zero=False, fs=48000)
+
+            breathFound = (dataInfo[0]['audioSamples'][breathSections[sectionIdx]['startSample']:
+                                                       breathSections[sectionIdx]['stopSample']])
+            # todo - ai : ask hh to use filtfilt if group delays from one way filter is a problem
+            #  if not, ask if filtering twice is a problem, if a modification is needed for the filter ?
+            # # breathFound2 = scipy.signal.filtfilt(h, [1], breathFound)
+            # # plt.plot(breathFound2, label='ch0filtfilt')
+            breathFound = scipy.signal.lfilter(h, [1], breathFound)
+            # plt.plot(breathFound, label='ch0_lfilter')
+            #
+            examineSection = (dataInfo[chIdx]['audioSamples'][breathSections[sectionIdx]['startSample']:
+                                                              breathSections[sectionIdx]['stopSampleBT']])
+            # plt.plot(examineSection, label='ch%d_original' % chIdx)
+            # # examineSection2 = scipy.signal.filtfilt(h, [1], examineSection)
+            # # plt.plot(examineSection2, label='filtfilt')
+            examineSection = scipy.signal.lfilter(h, [1], examineSection)
+            # plt.plot(examineSection, label='ch%d_lfilter' % chIdx)
+            #
+            # # examineSection = examineSection2
+            # # breathFound = breathFound2
+            corr = np.correlate(examineSection, breathFound, 'valid')
+            # # plt.plot(np.abs(corr))
+            # plt.legend()
+            # plt.show()
+            offset = np.abs(corr).argmax()
             breathSections[sectionIdx]['offsets'].append(offset)
-            # print(offset)
+            print('Delay channel #%d: %d samples' % (chIdx, offset))
 
         if verboseSignal:
             print('Plotting Signal...')
@@ -223,7 +244,7 @@ def splitBreaths(path, name, timestamp, verboseSignal, verboseEnergy, playAudio,
             input('Continue?:')
 
 
-filepath = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/Recordings_Max/eb2'
+filepath = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/Recordings_Max/'
 ts = datetime.now().strftime('%Y%m%d_%H%M%S')
 
 for root, directories, files in os.walk(filepath):
@@ -231,8 +252,8 @@ for root, directories, files in os.walk(filepath):
         if '.wav' in file:
             print('Extracting Breaths of:', file, 'at', root)
             splitBreaths(path=root, name=file, timestamp=ts,
-                         verboseSignal=False,
+                         verboseSignal=True,
                          verboseEnergy=False,
                          playAudio=False,
                          savePlots=False,
-                         saveFiles=True)
+                         saveFiles=False)
