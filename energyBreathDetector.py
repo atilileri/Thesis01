@@ -132,7 +132,7 @@ def splitBreaths(path, name, timestamp, verboseSignal, verboseEnergy, playAudio,
             # plt.show()
             offset = np.abs(corr).argmax()
             breathSections[sectionIdx]['offsets'].append(offset)
-            print('Delay channel #%d: %d samples' % (chIdx, offset))
+            print('Delay for channel #%d: %d samples' % (chIdx, offset))
 
         if verboseSignal:
             print('Plotting Signal...')
