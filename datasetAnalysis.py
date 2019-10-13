@@ -2,17 +2,21 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-filepath = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/Inputs_Max/wav/'
+paths = [
+    'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_02-10'
+    # , 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_00-02'
+         ]
 
 lengths = list()
-for root, directories, files in os.walk(filepath):
-    for file in files:
-        if '.wav' in file:
-            # print('Extracting Breaths of:', file, 'at', root)
-            length = file.split('.')[2]
-            length = int(length)/10
-            lengths.append(length)
-            print(file, length)
+for filepath in paths:
+    for root, directories, files in os.walk(filepath):
+        for file in files:
+            if '.wav' in file:
+                # print('Extracting Breaths of:', file, 'at', root)
+                length = file.split('.')[2]
+                length = int(length)/10
+                lengths.append(length)
+                print(file, length)
 
 print(max(lengths))
 stats = np.zeros(int(max(lengths))+1)
