@@ -223,12 +223,12 @@ ts = datetime.now().strftime('%Y%m%d_%H%M%S')
 
 for root, directories, files in os.walk(filepath):
     for file in files:
-        if '.wav' in file:
+        if '_orig.wav' in file:
             print('Extracting Breaths of:', file, 'at', root)
             splitBreaths(path=root, name=file, timestamp=ts,
-                         verboseSignal=False,
-                         verboseEnergy=False,
+                         verboseSignal=True,
+                         verboseEnergy=True,
                          playAudio=False,
-                         savePlots=False,
-                         saveFiles=True,
+                         savePlots=True,
+                         saveFiles=False,
                          printDelays=False)

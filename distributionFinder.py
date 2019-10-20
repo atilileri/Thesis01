@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 
 def get_best_distribution(data):
-    dist_names = ["norm", "exponweib", "weibull_max", "weibull_min", "pareto", "genextreme"]
+    dist_names = ["norm", "exponweib", "weibull_max", "weibull_min", "pareto", "genextreme", "truncnorm"]
     dist_results = []
     params = {}
     for dist_name in dist_names:
@@ -36,25 +36,6 @@ def get_best_distribution(data):
     print("Parameters for the best fit: "+ str(params[best_dist]))
 
     return best_dist, best_p, params[best_dist]
-
-
-filepath = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_02-10'
-
-lengths = list()
-for root, directories, files in os.walk(filepath):
-    for file in files:
-        if '.wav' in file:
-            # print('Extracting Breaths of:', file, 'at', root)
-            length = file.split('.')[2]
-            length = int(length)/10
-            lengths.append(length)
-            # print(file, length)
-
-# print(max(lengths))
-stats = np.zeros(int(max(lengths))+1)
-for l in lengths:
-    stats[int(l)] += 1
-
 
 # Create models from data
 def best_fit_distribution(data, bins=200, ax=None):
@@ -143,9 +124,34 @@ def make_pdf(dist, params, size=10000):
     return pdf
 
 
+paths = [
+    'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_02-10_1',
+    'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_02-10_2'
+         ]
+
+lengths = list()
+for filepath in paths:
+    for root, directories, files in os.walk(filepath):
+        for file in files:
+            if '.wav' in file:
+                # print('Extracting Breaths of:', file, 'at', root)
+                length = file.split('.')[2]
+                length = int(length)/10
+                lengths.append(length)
+
+print(max(lengths))
+print(len(lengths))
+
+stats = np.zeros(int(max(lengths))+1)
+for l in lengths:
+    stats[int(l)] += 1
+
+
 # get_best_distribution(lengths)
 
-# Find best fit distribution
-best_fit_name, best_fit_params = best_fit_distribution(lengths, 200)
+# # Find best fit distribution
+fig, ax = plt.subplots(1, 1)
+best_fit_name, best_fit_params = best_fit_distribution(lengths, 200, ax)
+plt.show()
 print(best_fit_name, best_fit_params)
 # best_dist = getattr(st, best_fit_name)
