@@ -13,7 +13,7 @@ import sys
 
 folders = [
     # 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_02-10_1/',
-    'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_02-10_2_cont/'
+    'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_02-10_2/'
            ]
 # folderBreaths = 'E:/atili/Datasets/BreathDataset/Processed_Small/breaths_00000000_000000/'
 # folderBreaths = 'E:/atili/Datasets/BreathDataset/Processed_Small/breaths_20190608_143805/'
