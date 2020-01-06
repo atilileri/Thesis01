@@ -34,8 +34,8 @@ a, b = (lowerBound - mean) / std, (higherBound - mean) / std
 myDist = st.truncnorm(a=a, b=b, loc=mean, scale=std)
 
 x = range(0, 1000, 1)
-plt.plot(x, myDist.pdf(x), label='Truncnorm')
-plt.hist(lengths, bins=range(0, 1001, 50), range=(0, 1000), normed=True, label='Data')
+# plt.plot(x, myDist.pdf(x), label='Truncnorm')
+plt.hist(lengths, bins=range(200, 1001, 25), range=(200, 1000), normed=False, label='Breath Instances')
 
 plt.xticks(range(0, 1001, 100))
 
@@ -56,9 +56,13 @@ for i in lengths:
 mean = np.mean(selected)
 print(mean)
 
-plt.vlines([200, 500], 0, 0.004, linestyles='--', colors='blue', label='Selection')
-plt.vlines([mean], 0, 0.004, linestyles='--', colors='green', label='Mean')
+plt.vlines([200, 600], 0, 600, linestyles='--', colors='orange', label='90% of Data')
+plt.ylabel('Number of Breath Instances')
+plt.xlabel('Duration Bins [25 ms]')
+# plt.vlines([mean], 0, 0.004, linestyles='--', colors='green', label='Mean')
 plt.legend()
+plt.savefig('./plots/lengthAnalysis.svg')
+plt.savefig('./plots/lengthAnalysis.png')
 plt.show()
 
 

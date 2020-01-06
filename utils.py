@@ -10,12 +10,13 @@ import glob
 import pickle
 import sys
 from statsmodels.tsa.stattools import adfuller
+# import arch
 
 '''
 Project Configuration
 '''
 # for hht versions
-signalType = 1  # 0 for original, 1 for our signal
+signalType = 0  # 0 for original, 1 for our signal
 
 # for sound file sources
 insideProject = True  # if sound files are taken from inside the project folder
@@ -481,23 +482,20 @@ def enablePrint():
 # checks whether or not the given signal X is stationary
 def isStationary(sigX):
     # sigX = range(1000)
-    adf, pVal, _, _, crit, _ = adfuller(sigX)
-    if pVal > adf:  # non-stationary
+    adf, pVal, _, nObs, crit, _ = adfuller(sigX)
+    if pVal > 0.05:  # non-stationary
         print('Non-', end='')
     print('stationary. ', end='')
-    print('ADF Stat: %f p-value: %f critVals: [' % (adf, pVal), end='')
-    for key, value in crit.items():
-        print(' %s: %.3f,' % (key, value), end='')
+    # print('ADF Stat: %f p-value: %f nObs: %d critVals: [' % (adf, pVal, nObs), end='')
+    # for key, value in crit.items():
+    #     print(' %s: %.3f,' % (key, value), end='')
 
-    split = len(sigX) // 2
-    X1, X2 = sigX[0:split], sigX[split:]
-    mean1, mean2 = float(np.mean(X1)), float(np.mean(X2))
-    var1, var2 = float(np.var(X1)), float(np.var(X2))
-    print('] mean1=%f, mean2=%f, ' % (mean1, mean2), end='')
-    print('variance1=%f, variance2=%f' % (var1, var2))
+    # split = len(sigX) // 2
+    # X1, X2 = sigX[0:split], sigX[split:]
+    # mean1, mean2 = float(np.mean(X1)), float(np.mean(X2))
+    # var1, var2 = float(np.var(X1)), float(np.var(X2))
+    # print('] mean1=%f, mean2=%f, ' % (mean1, mean2), end='')
+    # print('variance1=%f, variance2=%f' % (var1, var2))
+    print()
 
-    if pVal > adf:  # non-stationary
-        return False
-    else:
-        return True
-
+    return pVal, adf, crit

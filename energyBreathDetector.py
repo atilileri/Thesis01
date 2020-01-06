@@ -110,7 +110,7 @@ def splitBreaths(path, name, timestamp, verboseSignal, verboseEnergy, playAudio,
 
         if verboseSignal:
             print('Plotting Signal...')
-            plt.figure(figsize=(10, 10))
+            plt.figure(figsize=(15, 10))
             for chIdx in range(len(dataInfo)):
                 # draw
                 plt.subplot(2, 2, chIdx+1)
@@ -123,14 +123,25 @@ def splitBreaths(path, name, timestamp, verboseSignal, verboseEnergy, playAudio,
                 plt.axvline(x=(breathSections[sectionIdx]['startSample'] - breathSections[sectionIdx]['startSampleBT']
                                + breathSections[sectionIdx]['offsets'][chIdx]),
                             color='red', linestyle='dashed', zorder=5, linewidth=0.8)
+                if 0 < chIdx:
+                    plt.axvline(x=(breathSections[sectionIdx]['startSample']
+                                   - breathSections[sectionIdx]['startSampleBT']
+                                   + breathSections[sectionIdx]['offsets'][0]),
+                                color='black', linestyle='dashed', zorder=5, linewidth=0.8)
                 # trim end line
                 plt.axvline(x=(breathSections[sectionIdx]['stopSample'] - breathSections[sectionIdx]['startSampleBT']
                                + breathSections[sectionIdx]['offsets'][chIdx]),
                             color='red', linestyle='dashed', zorder=5, linewidth=0.8)
+                if 0 < chIdx:
+                    plt.axvline(x=(breathSections[sectionIdx]['stopSample']
+                                   - breathSections[sectionIdx]['startSampleBT']
+                                   + breathSections[sectionIdx]['offsets'][0]),
+                                color='black', linestyle='dashed', zorder=5, linewidth=0.8)
             # create legend
             plt.figlegend(handles=[
                 Line2D([0], [0], color='#1f77b4', label='Audio'),
-                Line2D([0], [0], color='red', linestyle='dashed', label='Trim Lines(synced)')
+                Line2D([0], [0], color='red', linestyle='dashed', label='Trim Lines(synced)'),
+                Line2D([0], [0], color='black', linestyle='dashed', label='Trim Lines(original)')
             ], loc='center')
 
             plt.tight_layout()
@@ -218,16 +229,16 @@ def splitBreaths(path, name, timestamp, verboseSignal, verboseEnergy, playAudio,
             input('Continue?:')
 
 
-filepath = 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/Recordings_Max/'
+filepath = 'E:/atili/Datasets/BreathDataset/Dataset20191020/Recordings_Max/aa'
 ts = datetime.now().strftime('%Y%m%d_%H%M%S')
 
 for root, directories, files in os.walk(filepath):
     for file in files:
-        if '_orig.wav' in file:
+        if 'aa01_filt.wav' in file:
             print('Extracting Breaths of:', file, 'at', root)
             splitBreaths(path=root, name=file, timestamp=ts,
                          verboseSignal=True,
-                         verboseEnergy=True,
+                         verboseEnergy=False,
                          playAudio=False,
                          savePlots=True,
                          saveFiles=False,

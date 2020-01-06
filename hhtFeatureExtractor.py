@@ -10,10 +10,11 @@ import numpy as np
 import utils
 import gc
 import sys
+import matplotlib.pyplot as plt
 
 folders = [
-    # 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_02-10_1/',
-    'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_02-10_2/'
+    'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_02-10_1/'
+    # 'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_02-10_2/'
            ]
 # folderBreaths = 'E:/atili/Datasets/BreathDataset/Processed_Small/breaths_00000000_000000/'
 # folderBreaths = 'E:/atili/Datasets/BreathDataset/Processed_Small/breaths_20190608_143805/'
@@ -85,15 +86,27 @@ for folderBreaths in folders:
                         # get a copy for normalization
                         normalized = imfEach.copy()
                         envelope = normalized  # pseudo envelope for while-loop entrance
+                        # for plotting during normalization (part 1/2)
+                        # ii = 0
                         while len(set(envelope)) > 1:  # loop until envelope is all the same
                             # 1. Take absolute value of IMF.
                             absImf = np.abs(normalized)
                             # 2. Find extrema.
-                            peaks, _ = sp.find_peaks(absImf, height=0)  # peaks over 0
+                            peaks, _ = sp.find_peaks(absImf, height=0, distance=500)  # peaks over 0
                             # 2.fix. Add first and last indexes for envelope calculations
                             peaks = np.concatenate(([0], peaks, [len(absImf) - 1]))
                             # 3. Based on these extrema, construct envelope.
                             envelope = np.interp(range(len(absImf)), peaks, absImf[peaks])
+                            # for plotting during normalization (part 2/2)
+                            # plt.plot(normalized)
+                            # plt.plot(envelope)
+                            # plt.title('IMF Normalization Iteration '+str(ii))
+                            # plt.tight_layout()
+                            # plt.savefig('./plots/imfNorm'+str(ii)+'.svg')
+                            # plt.savefig('./plots/imfNorm'+str(ii)+'.png')
+                            # ii += 1
+                            # plt.show()
+                            # input()
                             # 4. Normalize IMF using the envelope. The FM part of signal becomes almost equal amplitude.
                             normalized = np.divide(normalized, envelope)
                             # 5. Repeat process 2-4 after the amplitude of normalized IMF retains

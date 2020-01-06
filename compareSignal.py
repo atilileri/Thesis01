@@ -33,6 +33,8 @@ def compareSignals(folder, fileName1, fileName2):
         ax.set_yticks([0, -50, -100, -150, -200, -250])
         ax.grid(linestyle=':')
 
+        ax.tick_params(axis=u'both', which=u'both', length=0)
+
         gc.collect()
 
     fig.text(0.5, 0.01, 'Magnitude(dB)', ha='center')
@@ -42,6 +44,9 @@ def compareSignals(folder, fileName1, fileName2):
         Line2D([0], [0], color='#1f77b4', label='Original'),
         Line2D([0], [0], color='#ff7f0e', label='Filtered')
     ], loc='center')
+
+    plt.savefig('./plots/filterResultCompare.png')
+    plt.savefig('./plots/filterResultCompare.svg')
     plt.show()
 
 
