@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import scipy.stats as st
 
 paths = [
-    'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_02-10_1',
-    'D:/atili/MMIExt/Audacity/METU Recordings/Dataset/breaths_02-10_2'
+    'E:/atili/Datasets/BreathDataset/Datatset20191023/breaths_02-10_1',
+    'E:/atili/Datasets/BreathDataset/Datatset20191023/breaths_02-10_2'
          ]
 
 lengths = list()
@@ -55,6 +55,14 @@ for i in lengths:
         selected.append(i)
 mean = np.mean(selected)
 print(mean)
+
+cutOffAmounts = 0
+numOfLongRecs = 0
+for i in lengths:
+    if i > 600:
+        cutOffAmounts += i-600
+        numOfLongRecs += 1
+print(cutOffAmounts/numOfLongRecs)
 
 plt.vlines([200, 600], 0, 600, linestyles='--', colors='orange', label='90% of Data')
 plt.ylabel('Number of Breath Instances')

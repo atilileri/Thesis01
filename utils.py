@@ -16,7 +16,7 @@ from statsmodels.tsa.stattools import adfuller
 Project Configuration
 '''
 # for hht versions
-signalType = 0  # 0 for original, 1 for our signal
+signalType = 1  # 0 for original, 1 for our signal
 
 # for sound file sources
 insideProject = True  # if sound files are taken from inside the project folder
