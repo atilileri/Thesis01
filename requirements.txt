@@ -59,7 +59,7 @@ PTable==0.9.2
 pycparser==2.19
 pyeemd==1.4
 pygame==1.9.6
-Pygments==2.3.1
+Pygments==2.7.4
 pyhht==0.1.0
 pyparsing==2.2.0
 pyperclip==1.7.0
