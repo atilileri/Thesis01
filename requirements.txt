@@ -2,7 +2,7 @@ alabaster==0.7.12
 arch==4.8.1
 audioread==2.1.6
 audiotsm==0.1.2
-Babel==2.6.0
+Babel==2.9.1
 boto3==1.9.156
 botocore==1.12.156
 cached-property==1.5.1
