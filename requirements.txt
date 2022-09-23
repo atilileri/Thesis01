@@ -54,7 +54,7 @@ pathos==0.2.2.1
 patsy==0.5.1
 pox==0.2.4
 ppft==1.6.4.8
-protobuf==3.7.1
+protobuf==3.18.3
 PTable==0.9.2
 pycparser==2.19
 pyeemd==1.4
